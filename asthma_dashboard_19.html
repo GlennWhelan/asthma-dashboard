@@ -922,6 +922,10 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
         if (norm === name || k === name) { matchKey = k; break; }
       }
     }
+    // Debug specific countries
+    if (['36','250','56','40'].includes(String(id))) {
+      console.log(`ID ${id}: name="${name}" override="${overrideName}" matchKey="${matchKey}" inData=${!!data[overrideName]}`);
+    }
 
     const d    = matchKey ? data[matchKey] : null;
     const val  = d ? (metric === 'trials' ? d.trials : metric === 'sites' ? d.sites : d.avgPct) : 0;
