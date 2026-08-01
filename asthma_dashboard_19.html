@@ -792,75 +792,43 @@ function buildMap() {
   const svg = document.getElementById('world-map');
   svg._metric = metric; svg._phase = phaseF; svg._min = minT;
 
+  // Load D3 and topojson, then draw
+  function loadScript(src, cb) {
+    if (document.querySelector(`script[src="${src}"]`)) { cb(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = cb;
+    document.head.appendChild(s);
+  }
+
   fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
     .then(r => r.json())
     .then(world => {
-      // Use topojson via CDN
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js';
-      script.onload = () => drawMap(world, data, maxVal, metric, phaseF, minT);
-      if (window.topojson) { drawMap(world, data, maxVal, metric, phaseF, minT); }
-      else { document.head.appendChild(script); }
+      loadScript('https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js', () => {
+        loadScript('https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js', () => {
+          drawMap(world, data, maxVal, metric, phaseF, minT);
+        });
+      });
     })
     .catch(() => {
-      svg.innerHTML = '<text x="500" y="250" text-anchor="middle" fill="#999" font-size="16">Map data could not be loaded. Please check your internet connection.</text>';
+      svg.innerHTML = '<text x="500" y="250" text-anchor="middle" fill="#999" font-size="16">Map data could not be loaded.</text>';
     });
 }
 
 function drawMap(world, data, maxVal, metric, phaseF, minT) {
   const svg = document.getElementById('world-map');
 
-  // Equirectangular projection
-  function project(lon, lat) {
-    const x = (lon + 180) / 360 * 1000;
-    const y = (90 - lat) / 180 * 500;
-    return [x, y];
-  }
+  // Use D3 equirectangular projection with proper antimeridian cutting
+  const projection = d3.geoEquirectangular()
+    .scale(159)
+    .translate([500, 250])
+    .precision(0.1);
 
-  // Convert a ring to SVG path, but SKIP rings that cross the antimeridian
-  // (these cause the horizontal line artifacts)
-  function ringToPath(ring, featureId) {
-    // For Russia (643): clip all points to max lon 170° to avoid dateline wrap artifacts
-    let processedRing = ring;
-    if (String(featureId) === '643') {
-      processedRing = ring.map(([lon, lat]) => [Math.min(lon, 170), lat]);
-    }
-    // For Norway (578): skip rings whose average latitude > 74° (Svalbard/Jan Mayen)
-    if (String(featureId) === '578') {
-      const avgLat = ring.reduce((s,[,lat]) => s+lat, 0) / ring.length;
-      if (avgLat > 74) return '';
-    }
-    const pts = processedRing.map(([lon, lat]) => project(lon, lat));
-    // For all others: skip rings with a sudden screen jump > 400px (antimeridian artifact)
-    if (String(featureId) !== '643') {
-      for (let i = 1; i < pts.length; i++) {
-        if (Math.abs(pts[i][0] - pts[i-1][0]) > 400) return '';
-      }
-    }
-    return pts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'Z';
-  }
-
-  function featureToPath(geometry, featureId) {
-    if (!geometry) return '';
-    const paths = [];
-    if (geometry.type === 'Polygon') {
-      geometry.coordinates.forEach(ring => {
-        const p = ringToPath(ring, featureId);
-        if (p) paths.push(p);
-      });
-    } else if (geometry.type === 'MultiPolygon') {
-      geometry.coordinates.forEach(poly => poly.forEach(ring => {
-        const p = ringToPath(ring, featureId);
-        if (p) paths.push(p);
-      }));
-    }
-    return paths.join(' ');
-  }
-
-  // Get country name from feature
+  const geoPath = d3.geoPath().projection(projection);
   const countries = topojson.feature(world, world.objects.countries);
 
-  // Use a hardcoded ID->name map for the countries we care about
+  // D3 handles antimeridian cutting automatically
+
+  // Get country name from feature
   const ID_TO_NAME = {
     "4":"Afghanistan","8":"Albania","12":"Algeria","24":"Angola","32":"Argentina","36":"Australia","40":"Austria","50":"Bangladesh","56":"Belgium","68":"Bolivia","76":"Brazil","100":"Bulgaria","116":"Cambodia","120":"Cameroon","124":"Canada","144":"Sri Lanka","152":"Chile","156":"China","170":"Colombia","188":"Costa Rica","191":"Croatia","192":"Cuba","203":"Czech Republic","208":"Denmark","218":"Ecuador","818":"Egypt","231":"Ethiopia","246":"Finland","250":"France","276":"Germany","288":"Ghana","300":"Greece","320":"Guatemala","332":"Haiti","340":"Honduras","348":"Hungary","356":"India","360":"Indonesia","364":"Iran","368":"Iraq","372":"Ireland","376":"Israel","380":"Italy","388":"Jamaica","392":"Japan","400":"Jordan","398":"Kazakhstan","404":"Kenya","410":"South Korea","414":"Kuwait","418":"Laos","422":"Lebanon","430":"Liberia","434":"Libya","442":"Luxembourg","484":"Mexico","504":"Morocco","508":"Mozambique","516":"Namibia","524":"Nepal","528":"Netherlands","554":"New Zealand","566":"Nigeria","578":"Norway","586":"Pakistan","591":"Panama","604":"Peru","608":"Philippines","616":"Poland","620":"Portugal","630":"Puerto Rico","634":"Qatar","642":"Romania","643":"Russia","682":"Saudi Arabia","694":"Sierra Leone","703":"Slovakia","705":"Slovenia","706":"Somalia","710":"South Africa","724":"Spain","729":"Sudan","752":"Sweden","756":"Switzerland","762":"Tajikistan","764":"Thailand","788":"Tunisia","792":"Turkey","800":"Uganda","804":"Ukraine","784":"United Arab Emirates","826":"United Kingdom","840":"United States of America","858":"Uruguay","862":"Venezuela","704":"Vietnam","887":"Yemen","894":"Zambia","716":"Zimbabwe","807":"North Macedonia","688":"Serbia","233":"Estonia","428":"Latvia","440":"Lithuania","344":"Hong Kong","158":"Taiwan","702":"Singapore","458":"Malaysia","496":"Mongolia"
   };
@@ -913,7 +881,7 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
     const val  = d ? (metric === 'trials' ? d.trials : metric === 'sites' ? d.sites : d.avgPct) : 0;
     const fill = d && val > 0 ? mapColor(val, maxVal, metric) : '#D6E8F7';
 
-    const pathD = featureToPath(geom, id);
+    const pathD = geoPath(feature) || '';
     if (!pathD) return;
 
     const path = document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -962,19 +930,11 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
 
     // Add value label for countries with data
     if (d && val > 0) {
-      // Compute centroid
-      let sumX = 0, sumY = 0, count = 0;
-      const geom = feature.geometry;
-      const rings = geom.type === 'Polygon' ? [geom.coordinates[0]] : geom.coordinates.map(p => p[0]);
-      rings.forEach(ring => {
-        ring.forEach(pt => {
-          const [x, y] = project(pt[0], pt[1]);
-          sumX += x; sumY += y; count++;
-        });
-      });
-      if (count > 0) {
-        const cx = sumX / count;
-        const cy = sumY / count;
+      // Use D3 centroid
+      const centroid = geoPath.centroid(feature);
+      if (centroid && !isNaN(centroid[0]) && !isNaN(centroid[1])) {
+        const cx = centroid[0];
+        const cy = centroid[1];
         const label = metric === 'pct' ? val.toFixed(0) + '%' : val;
         const text = document.createElementNS('http://www.w3.org/2000/svg','text');
         text.setAttribute('x', cx.toFixed(1));
@@ -992,7 +952,7 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
 
   // ── EU Inset ──────────────────────────────────────────────────────────────
   // Inset box: bottom-right, 280x220 px in SVG coords
-  const INSET = { x: 710, y: 270, w: 285, h: 225 };
+  const INSET = { x: 15, y: 270, w: 240, h: 195 };
   // EU viewport: lon 340-500 px (approx -5 to 30 lon), lat 130-240 px (approx 35 to 72 lat)
   const EU_LON = [-12, 32];
   const EU_LAT = [34, 72];
