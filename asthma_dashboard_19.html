@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asthma Biologics — Trial Site Intelligence Dashboard</title>
+<style>
+  :root {
+    --navy: #1F3864;
+    --blue: #2E5FA3;
+    --light-blue: #D9E1F2;
+    --accent: #2196F3;
+    --green: #1B7340;
+    --light-green: #E2EFDA;
+    --yellow: #FFF2CC;
+    --orange: #FCE4D6;
+    --red: #C00000;
+    --gray: #f5f5f5;
+    --border: #ddd;
+    --text: #1a1a1a;
+    --muted: #666;
+    --region-bg: #FFF8E1;
+    --region-border: #F9A825;
+    --region-text: #7D6608;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 13px; color: var(--text); background: #f0f2f5; }
+
+  .header { background: var(--navy); color: white; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .header .title { font-size: 18px; font-weight: bold; }
+  .header .sub { font-size: 11px; opacity: 0.75; margin-top: 2px; }
+  .header .badge { background: #2E5FA3; border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; padding: 4px 12px; font-size: 11px; }
+
+  .tabs { background: white; border-bottom: 2px solid var(--navy); display: flex; padding: 0 24px; }
+  .tab { padding: 10px 20px; cursor: pointer; font-size: 13px; font-weight: bold; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+  .tab:hover { color: var(--navy); }
+  .tab.active { color: var(--navy); border-bottom-color: var(--navy); }
+
+  .main { padding: 20px 24px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .filter-bar { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; }
+  .filter-group label { font-size: 11px; font-weight: bold; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .filter-group select, .filter-group input { border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; font-size: 13px; background: white; min-width: 160px; }
+  .filter-group select:focus { outline: none; border-color: var(--accent); }
+
+  /* Summary cards */
+  .cards-section { margin-bottom: 16px; }
+  .cards-label { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 6px; padding-left: 2px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .card { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; }
+  .card.region-card { background: var(--region-bg); border-color: var(--region-border); }
+  .card .num { font-size: 26px; font-weight: bold; color: var(--navy); }
+  .card.region-card .num { color: var(--region-text); }
+  .card .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .card .sub-num { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* Context banner */
+  .context-banner { background: var(--region-bg); border: 1px solid var(--region-border); border-radius: 6px; padding: 10px 18px; margin-bottom: 10px; font-size: 13px; color: var(--region-text); font-weight: bold; }
+  .context-banner .ctx-label { display: block; }
+
+  /* Table */
+  .table-wrap { background: white; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 16px; }
+  .table-header { background: var(--navy); color: white; padding: 10px 16px; font-weight: bold; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+  .table-header .count { font-size: 11px; opacity: 0.8; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--light-blue); color: var(--navy); font-weight: bold; text-align: left; padding: 8px 12px; font-size: 12px; border-bottom: 2px solid var(--navy); white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { background: #c5d3e8; }
+  th .sort-icon { opacity: 0.4; font-size: 10px; margin-left: 4px; }
+  th.sorted .sort-icon { opacity: 1; }
+  td { padding: 7px 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbff; }
+
+  /* Region context row in table */
+  tr.region-row td { background: var(--region-bg); color: var(--region-text); font-weight: bold; font-size: 12px; border-top: 2px solid var(--region-border); border-bottom: 2px solid var(--region-border); }
+  tr.region-row:hover td { background: #FFF3CD; }
+  .region-tag { display: inline-block; background: var(--region-border); color: white; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: bold; margin-right: 4px; }
+
+  .nct-link { color: var(--accent); text-decoration: none; font-size: 11px; }
+  .nct-link:hover { text-decoration: underline; }
+
+  .phase { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: bold; }
+  .phase-2 { background: var(--yellow); color: #7D6608; }
+  .phase-3 { background: var(--light-green); color: var(--green); }
+  .phase-1 { background: var(--orange); color: #843500; }
+
+  .pct-bar { display: flex; align-items: center; gap: 6px; }
+  .bar-track { flex: 1; background: #eee; border-radius: 3px; height: 7px; min-width: 50px; }
+  .bar-fill { height: 7px; border-radius: 3px; transition: width 0.3s; }
+  .bar-fill.country { background: var(--blue); }
+  .bar-fill.region { background: var(--region-border); }
+  .bar-fill.high { background: #0D47A1; }
+  .bar-fill.medium { background: #1976D2; }
+  .bar-fill.low { background: #90CAF9; }
+  .pct-num { font-size: 12px; font-weight: bold; color: var(--navy); min-width: 36px; text-align: right; }
+  .pct-num.region-pct { color: var(--region-text); }
+  .site-count { font-weight: bold; color: var(--navy); }
+  .zero { color: #ccc; }
+
+  /* Heatmap */
+  .heatmap-wrap { background: white; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 16px; }
+  .hm-table { border-collapse: collapse; font-size: 11px; white-space: nowrap; }
+  .hm-table th { background: var(--navy); color: white; padding: 5px 8px; text-align: center; font-size: 10px; border: 1px solid rgba(255,255,255,0.15); position: sticky; top: 0; z-index: 2; }
+  .hm-table th.row-header { text-align: left; position: sticky; left: 0; z-index: 3; background: var(--navy); min-width: 150px; }
+  .hm-table td { padding: 4px 6px; border: 1px solid #eee; text-align: center; font-size: 11px; font-weight: bold; }
+  .hm-table td.row-label { text-align: left; background: var(--light-blue); color: var(--navy); font-weight: bold; position: sticky; left: 0; z-index: 1; padding: 4px 8px; white-space: nowrap; }
+  .hm-table td.region-label { background: #37474F; color: white; font-weight: bold; text-align: left; padding: 4px 8px; position: sticky; left: 0; z-index: 1; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .legend { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-swatch { width: 16px; height: 12px; border-radius: 2px; }
+
+  .empty { text-align: center; padding: 40px; color: var(--muted); }
+
+  /* Map */
+  .map-country { transition: opacity 0.15s; cursor: pointer; stroke: white; stroke-width: 0.5; }
+  .map-country:hover { opacity: 0.75; stroke: var(--navy); stroke-width: 1.5; }
+  .map-country.active { stroke: var(--navy); stroke-width: 2; }
+  .map-label { font-size: 8px; font-weight: bold; fill: white; text-anchor: middle; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+  .map-bubble { pointer-events: none; }
+
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="title">🧬 Asthma Biologics — Trial Site Intelligence</div>
+    <div class="sub">Competitive landscape for APG777 (zumilokibart) Phase 2b planning · 62 trials</div>
+  </div>
+  <div class="badge">Property of Glenn Whelan · Confidential</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('country', this)">🌍 Country / Region View</div>
+  <div class="tab" onclick="showTab('heatmap', this)">🔥 Heatmap</div>
+  <div class="tab" onclick="showTab('trials', this)">📋 Trial Browser</div>
+  <div class="tab" onclick="showTab('map', this)">🗺️ World Map</div>
+</div>
+
+<div class="main">
+
+<!-- TAB 1: COUNTRY / REGION VIEW -->
+<div id="panel-country" class="panel active">
+
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>View by</label>
+      <select id="view-mode" onchange="onViewModeChange()">
+        <option value="country">Country</option>
+        <option value="region">Region</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label id="select-label">Country</label>
+      <select id="country-select" onchange="updateCountryView()"></select>
+    </div>
+    <div class="filter-group">
+      <label>Phase filter</label>
+      <select id="phase-filter-c" onchange="updateCountryView()">
+        <option value="all">All phases</option>
+        <option value="2">Phase 2 / 2b</option>
+        <option value="3">Phase 3</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Min sites in selection</label>
+      <select id="min-sites-c" onchange="updateCountryView()">
+        <option value="0">Show all (incl. 0)</option>
+        <option value="1" selected>≥ 1 site</option>
+        <option value="5">≥ 5 sites</option>
+        <option value="10">≥ 10 sites</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="cards-section">
+    <div class="cards-label" id="country-cards-label">Country summary</div>
+    <div class="cards" id="country-cards"></div>
+  </div>
+
+  <!-- Region context banner (country mode only) -->
+  <div id="region-context-banner" style="display:none;"></div>
+
+  <!-- Region context cards (country mode only) -->
+  <div class="cards-section" id="region-cards-section" style="display:none;">
+    <div class="cards-label" id="region-cards-label">Region context</div>
+    <div class="cards" id="region-cards"></div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-header">
+      <span id="country-table-title">Trial breakdown</span>
+      <span class="count" id="country-table-count"></span>
+    </div>
+    <table id="country-table">
+      <thead id="country-thead"></thead>
+      <tbody id="country-tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- TAB 2: HEATMAP -->
+<div id="panel-heatmap" class="panel">
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>Group rows by</label>
+      <select id="hm-group" onchange="buildHeatmap()">
+        <option value="region">Region</option>
+        <option value="country">Country</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Show value as</label>
+      <select id="hm-metric" onchange="buildHeatmap()">
+        <option value="pct">% of trial</option>
+        <option value="sites">Site count</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Phase filter</label>
+      <select id="hm-phase" onchange="buildHeatmap()">
+        <option value="all">All phases</option>
+        <option value="2">Phase 2 / 2b</option>
+        <option value="3">Phase 3</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Min % to color</label>
+      <select id="hm-min" onchange="buildHeatmap()">
+        <option value="0">Any</option>
+        <option value="5" selected>≥ 5%</option>
+        <option value="10">≥ 10%</option>
+        <option value="20">≥ 20%</option>
+      </select>
+    </div>
+  </div>
+  <div class="heatmap-wrap">
+    <div class="table-header">Site Distribution Heatmap — darker = higher % of trial sites</div>
+    <div style="overflow:auto;max-height:600px;">
+      <table class="hm-table" id="hm-table"></table>
+    </div>
+    <div class="legend" id="hm-legend"></div>
+  </div>
+</div>
+
+<!-- TAB 3: TRIAL BROWSER -->
+<div id="panel-trials" class="panel">
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>Phase</label>
+      <select id="tb-phase" onchange="buildTrialBrowser()">
+        <option value="all">All</option>
+        <option value="2">Phase 2 / 2b</option>
+        <option value="3">Phase 3</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Drug / mAb</label>
+      <select id="tb-mab" onchange="buildTrialBrowser()">
+        <option value="all">All</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Search</label>
+      <input type="text" id="tb-search" placeholder="study name, drug, NCT..." oninput="buildTrialBrowser()" style="min-width:200px;border:1px solid var(--border);border-radius:4px;padding:6px 10px;font-size:13px;">
+    </div>
+  </div>
+  <div class="table-wrap">
+    <div class="table-header">
+      <span>Trial Browser</span>
+      <span class="count" id="tb-count"></span>
+    </div>
+    <table id="tb-table">
+      <thead>
+        <tr>
+          <th onclick="sortTable('tb-table',0)" data-col="0">Study <span class="sort-icon">⇅</span></th>
+          <th onclick="sortTable('tb-table',1)" data-col="1">Drug <span class="sort-icon">⇅</span></th>
+          <th onclick="sortTable('tb-table',2)" data-col="2">Phase <span class="sort-icon">⇅</span></th>
+          <th onclick="sortTable('tb-table',3)" data-col="3">Total Sites <span class="sort-icon">⇅</span></th>
+          <th onclick="sortTable('tb-table',4)" data-col="4">Countries <span class="sort-icon">⇅</span></th>
+          <th>Top Countries</th>
+          <th>NCT</th>
+        </tr>
+      </thead>
+      <tbody id="tb-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB 4: WORLD MAP -->
+<div id="panel-map" class="panel">
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>Show on map</label>
+      <select id="map-metric" onchange="buildMap()">
+        <option value="trials">Number of trials</option>
+        <option value="sites">Total sites</option>
+        <option value="pct">Avg % of trial sites</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Phase filter</label>
+      <select id="map-phase" onchange="buildMap()">
+        <option value="all">All phases</option>
+        <option value="2">Phase 2 / 2b</option>
+        <option value="3">Phase 3</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Min trials to show</label>
+      <select id="map-min" onchange="buildMap()">
+        <option value="0">All countries</option>
+        <option value="1" selected>≥ 1 trial</option>
+        <option value="5">≥ 5 trials</option>
+        <option value="10">≥ 10 trials</option>
+      </select>
+    </div>
+  </div>
+  <div style="background:white;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:16px;">
+    <div class="table-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <span id="map-title">Trial Count by Country</span>
+      <div id="map-legend-inline" style="display:flex;align-items:center;gap:10px;font-size:11px;"></div>
+    </div>
+    <div style="position:relative;">
+      <svg id="world-map" viewBox="0 0 1000 500" style="width:100%;display:block;background:#EEF4FB;cursor:pointer;"></svg>
+      <div id="map-tooltip" style="display:none;position:absolute;background:white;border:1px solid var(--border);border-radius:6px;padding:12px 14px;box-shadow:0 4px 16px rgba(0,0,0,0.18);min-width:230px;pointer-events:none;z-index:10;font-size:12px;"></div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+const TRIALS = [{"study": "DREAM", "phase": "2", "nct": "NCT01000506", "mab": "mepolizumab", "total_sites": 95, "n_countries": 13, "countries": {"France": 5, "Germany": 10, "United Kingdom": 5, "Poland": 6, "Romania": 4, "Russia": 9, "Ukraine": 11, "South Korea": 5, "Australia": 5, "Argentina": 5, "Chile": 4, "United States": 21, "Canada": 5}, "regions": {"WEU": 20, "EEU": 30, "APAC": 10, "LATAM": 9, "NA": 26}}, {"study": "BENRA PH2", "phase": "2", "nct": "NCT01238861", "mab": "benralizumab", "total_sites": 79, "n_countries": 10, "countries": {"Bulgaria": 4, "Poland": 9, "Russia": 9, "Argentina": 4, "Brazil": 9, "Colombia": 2, "Mexico": 6, "Peru": 4, "United States": 28, "Canada": 4}, "regions": {"WEU": 0, "EEU": 22, "LATAM": 25, "NA": 32}}, {"study": "MENSA", "phase": "3", "nct": "NCT01691521", "mab": "mepolizumab", "total_sites": 135, "n_countries": 16, "countries": {"Belgium": 4, "France": 7, "Germany": 12, "Italy": 8, "Spain": 5, "United Kingdom": 5, "Russia": 4, "Ukraine": 4, "Japan": 22, "South Korea": 11, "Australia": 5, "Argentina": 7, "Chile": 3, "Mexico": 4, "United States": 21, "Canada": 13}, "regions": {"WEU": 41, "EEU": 8, "APAC": 38, "LATAM": 14, "NA": 34}}, {"study": "LUTE", "phase": "2b", "nct": "NCT01545440", "mab": "lebrikizumab", "total_sites": 71, "n_countries": 2, "countries": {"Australia": 1, "United States": 70}, "regions": {"WEU": 0, "APAC": 1, "NA": 70}}, {"study": "VERSE", "phase": "2b", "nct": "NCT01545453", "mab": "lebrikizumab", "total_sites": 64, "n_countries": 2, "countries": {"Australia": 1, "United States": 63}, "regions": {"WEU": 0, "APAC": 1, "NA": 63}}, {"study": "SIRIUS", "phase": "3", "nct": "NCT01691508", "mab": "mepolizumab", "total_sites": 47, "n_countries": 10, "countries": {"France": 5, "Germany": 9, "Netherlands": 3, "United Kingdom": 4, "Czech": 4, "Poland": 4, "Australia": 4, "Mexico": 2, "United States": 8, "Canada": 4}, "regions": {"WEU": 21, "EEU": 8, "APAC": 4, "LATAM": 2, "NA": 12}}, {"study": "DUPI ph2", "phase": "2", "nct": "NCT01854047", "mab": "dupilumab", "total_sites": 201, "n_countries": 16, "countries": {"France": 11, "Spain": 7, "Italy": 10, "Poland": 7, "Russia": 10, "Ukraine": 12, "Turkey": 10, "South Africa": 2, "Japan": 40, "South Korea": 5, "Australia": 8, "New Zealand": 2, "Argentina": 11, "Chile": 11, "Mexico": 5, "United States": 50}, "regions": {"WEU": 28, "EEU": 29, "ME": 10, "AFR": 2, "APAC": 55, "LATAM": 27, "NA": 50}}, {"study": "LAVOLTA I", "phase": "3", "nct": "NCT01868061", "mab": "lebrikizumab", "total_sites": 232, "n_countries": 26, "countries": {"Belgium": 2, "France": 4, "Germany": 3, "Hungary": 3, "Italy": 7, "Spain": 7, "United Kingdom": 4, "Bulgaria": 10, "Czech": 4, "Poland": 12, "Romania": 4, "Russia": 13, "Serbia": 3, "Slovakia": 3, "Ukraine": 13, "Israel": 5, "South Africa": 7, "Japan": 25, "South Korea": 6, "Australia": 5, "New Zealand": 4, "Argentina": 5, "Mexico": 3, "Peru": 9, "United States": 66, "Canada": 5}, "regions": {"WEU": 30, "EEU": 62, "ME": 5, "AFR": 7, "APAC": 40, "LATAM": 17, "NA": 71}}, {"study": "LAVOLTA II", "phase": "3", "nct": "NCT01867125", "mab": "lebrikizumab", "total_sites": 230, "n_countries": 27, "countries": {"Belgium": 2, "France": 5, "Germany": 2, "Hungary": 3, "Italy": 6, "Spain": 6, "United Kingdom": 5, "Czech": 4, "Poland": 12, "Romania": 4, "Russia": 13, "Serbia": 3, "Slovakia": 3, "Ukraine": 13, "Israel": 5, "Turkey": 8, "South Africa": 7, "Japan": 29, "South Korea": 6, "Australia": 5, "New Zealand": 4, "Argentina": 5, "Chile": 3, "Colombia": 1, "Mexico": 2, "United States": 69, "Canada": 5}, "regions": {"WEU": 29, "EEU": 52, "ME": 13, "AFR": 7, "APAC": 44, "LATAM": 11, "NA": 74}}, {"study": "SIROCCO", "phase": "3", "nct": "NCT01928771", "mab": "benralizumab", "total_sites": 281, "n_countries": 17, "countries": {"France": 14, "Italy": 17, "Spain": 9, "United Kingdom": 22, "Bulgaria": 11, "Czech": 10, "Poland": 16, "Russia": 24, "Turkey": 8, "South Africa": 5, "South Korea": 9, "Vietnam": 2, "Australia": 11, "Brazil": 6, "Mexico": 3, "Peru": 3, "United States": 111}, "regions": {"WEU": 62, "EEU": 61, "ME": 8, "AFR": 5, "APAC": 22, "LATAM": 12, "NA": 111}}, {"study": "CALIMA", "phase": "3", "nct": "NCT01914757", "mab": "benralizumab", "total_sites": 217, "n_countries": 11, "countries": {"Germany": 18, "Sweden": 3, "Poland": 30, "Romania": 7, "Ukraine": 12, "Japan": 31, "Philippines": 3, "Argentina": 15, "Chile": 6, "United States": 81, "Canada": 11}, "regions": {"WEU": 21, "EEU": 49, "APAC": 34, "LATAM": 21, "NA": 92}}, {"study": "PATHWAY", "phase": "2", "nct": "NCT02054130", "mab": "tezepelumab", "total_sites": 107, "n_countries": 12, "countries": {"Hungary": 14, "Bulgaria": 7, "Czech": 7, "Latvia": 6, "Lithuania": 3, "Serbia": 3, "Slovakia": 12, "Ukraine": 12, "Israel": 7, "South Africa": 4, "Japan": 14, "United States": 18}, "regions": {"WEU": 14, "EEU": 50, "ME": 7, "AFR": 4, "APAC": 14, "NA": 18}}, {"study": "ZONDA", "phase": "3", "nct": "NCT02075255", "mab": "benralizumab", "total_sites": 87, "n_countries": 12, "countries": {"France": 6, "Germany": 7, "Spain": 2, "Bulgaria": 6, "Poland": 12, "Ukraine": 7, "Turkey": 5, "South Korea": 6, "Argentina": 4, "Chile": 6, "United States": 20, "Canada": 6}, "regions": {"WEU": 15, "EEU": 25, "ME": 5, "APAC": 6, "LATAM": 10, "NA": 26}}, {"study": "MUSCA", "phase": "3b", "nct": "NCT02281318", "mab": "mepolizumab", "total_sites": 144, "n_countries": 19, "countries": {"Belgium": 5, "France": 10, "Germany": 12, "Greece": 7, "Italy": 7, "Spain": 8, "Netherlands": 5, "Norway": 4, "United Kingdom": 4, "Bulgaria": 2, "Czech": 7, "Estonia": 3, "Russia": 9, "Slovakia": 4, "Ukraine": 10, "Argentina": 8, "Peru": 5, "United States": 24, "Canada": 10}, "regions": {"WEU": 62, "EEU": 35, "LATAM": 13, "NA": 34}}, {"study": "QUEST", "phase": "3", "nct": "NCT02414854", "mab": "dupilumab", "total_sites": 389, "n_countries": 22, "countries": {"France": 11, "Germany": 8, "Hungary": 1, "Italy": 10, "Spain": 8, "United Kingdom": 6, "Poland": 9, "Russia": 13, "Ukraine": 18, "Turkey": 11, "South Africa": 10, "Japan": 72, "South Korea": 15, "Taiwan": 8, "Australia": 6, "Argentina": 12, "Brazil": 9, "Chile": 16, "Colombia": 4, "Mexico": 12, "United States": 116, "Canada": 14}, "regions": {"WEU": 44, "EEU": 40, "ME": 11, "AFR": 10, "APAC": 101, "LATAM": 53, "NA": 130}}, {"study": "VENTURE", "phase": "3", "nct": "NCT02528214", "mab": "dupilumab", "total_sites": 80, "n_countries": 17, "countries": {"Belgium": 3, "Hungary": 2, "Italy": 6, "Netherlands": 2, "Spain": 6, "Poland": 5, "Romania": 7, "Russia": 5, "Ukraine": 9, "Israel": 5, "Argentina": 3, "Brazil": 3, "Chile": 3, "Colombia": 2, "Mexico": 5, "United States": 8, "Canada": 6}, "regions": {"WEU": 19, "EEU": 26, "ME": 5, "LATAM": 16, "NA": 14}}, {"study": "ZENYATTA", "phase": "2", "nct": "NCT02918019", "mab": "astegolimab", "total_sites": 138, "n_countries": 15, "countries": {"Belgium": 2, "Germany": 4, "Bulgaria": 12, "Czech": 5, "Poland": 10, "Romania": 5, "Russia": 13, "Ukraine": 13, "South Africa": 5, "South Korea": 3, "New Zealand": 2, "Argentina": 10, "Peru": 6, "United States": 43, "Canada": 5}, "regions": {"WEU": 6, "EEU": 58, "AFR": 5, "APAC": 5, "LATAM": 16, "NA": 48}}, {"study": "NAVIGATOR", "phase": "3", "nct": "NCT03347279", "mab": "tezepelumab", "total_sites": 289, "n_countries": 18, "countries": {"Austria": 5, "France": 14, "Germany": 14, "United Kingdom": 1, "Russia": 4, "Ukraine": 2, "Israel": 6, "Saudi Arabia": 2, "South Africa": 18, "Japan": 55, "South Korea": 18, "Taiwan": 9, "Vietnam": 4, "Australia": 8, "Brazil": 14, "Argentina": 8, "United States": 95, "Canada": 12}, "regions": {"WEU": 34, "EEU": 6, "ME": 8, "AFR": 18, "APAC": 94, "LATAM": 22, "NA": 107}}, {"study": "ITEP", "phase": "2", "nct": "NCT03387852", "mab": "itepekimab", "total_sites": 71, "n_countries": 8, "countries": {"Poland": 7, "Russia": 9, "Ukraine": 10, "Turkey": 8, "Argentina": 5, "Chile": 8, "Mexico": 6, "United States": 18}, "regions": {"WEU": 0, "EEU": 26, "ME": 8, "LATAM": 19, "NA": 18}}, {"study": "DIRECTION", "phase": "3", "nct": "NCT03927157", "mab": "tezepelumab", "total_sites": 72, "n_countries": 3, "countries": {"China": 62, "South Korea": 8, "Philippines": 2}, "regions": {"WEU": 0, "APAC": 72}}, {"study": "FRONTIER3", "phase": "2", "nct": "NCT04570657", "mab": "tozorakimab", "total_sites": 65, "n_countries": 7, "countries": {"Germany": 12, "Hungary": 5, "United Kingdom": 4, "Poland": 11, "South Africa": 11, "Argentina": 13, "United States": 9}, "regions": {"WEU": 21, "EEU": 11, "AFR": 11, "LATAM": 13, "NA": 9}}, {"study": "SWIFT-1", "phase": "3", "nct": "NCT04719832", "mab": "depemokimab", "total_sites": 123, "n_countries": 12, "countries": {"France": 6, "Germany": 11, "Ireland": 2, "Italy": 6, "Spain": 10, "United Kingdom": 6, "Czech": 5, "Poland": 8, "Russia": 8, "China": 26, "United States": 30, "Canada": 5}, "regions": {"WEU": 41, "EEU": 21, "APAC": 26, "NA": 35}}, {"study": "SWIFT-2", "phase": "3", "nct": "NCT04718103", "mab": "depemokimab", "total_sites": 129, "n_countries": 11, "countries": {"France": 6, "Hungary": 3, "Italy": 10, "Spain": 16, "Czech": 3, "Poland": 7, "Japan": 30, "Taiwan": 6, "Australia": 2, "United States": 41, "Canada": 5}, "regions": {"WEU": 35, "EEU": 10, "APAC": 38, "NA": 46}}, {"study": "AIRCULES", "phase": "2", "nct": "NCT06102005", "mab": "lunsekimig", "total_sites": 156, "n_countries": 14, "countries": {"United Kingdom": 6, "Israel": 9, "Turkey": 7, "South Africa": 6, "China": 18, "India": 8, "Japan": 10, "South Korea": 6, "Argentina": 10, "Brazil": 8, "Chile": 9, "Mexico": 7, "United States": 48, "Canada": 4}, "regions": {"WEU": 6, "ME": 16, "AFR": 6, "APAC": 42, "LATAM": 34, "NA": 52}}, {"study": "VALIANT", "phase": "2", "nct": "NCT06196879", "mab": "verekitug", "total_sites": 155, "n_countries": 15, "countries": {"Germany": 8, "Italy": 4, "Spain": 2, "United Kingdom": 9, "Bulgaria": 10, "Czech": 4, "Poland": 12, "Ukraine": 3, "South Africa": 6, "Japan": 9, "South Korea": 10, "Argentina": 14, "Chile": 5, "United States": 55, "Canada": 4}, "regions": {"WEU": 23, "EEU": 29, "AFR": 6, "APAC": 19, "LATAM": 19, "NA": 59}}, {"study": "TIDE-ASTHMA", "phase": "2", "nct": "NCT05421598", "mab": "amlitelimab", "total_sites": 113, "n_countries": 14, "countries": {"Hungary": 8, "Italy": 4, "United Kingdom": 1, "Poland": 6, "Turkey": 5, "South Africa": 8, "Japan": 17, "South Korea": 7, "Argentina": 9, "Brazil": 8, "Chile": 8, "Mexico": 6, "United States": 21, "Canada": 5}, "regions": {"WEU": 13, "EEU": 6, "ME": 5, "AFR": 8, "APAC": 24, "LATAM": 31, "NA": 26}}, {"study": "RIVER-ASTHMA", "phase": "2", "nct": "NCT06033833", "mab": "amlitelimab", "total_sites": 68, "n_countries": 14, "countries": {"Hungary": 4, "Italy": 3, "United Kingdom": 1, "Poland": 6, "Turkey": 5, "South Africa": 4, "Japan": 5, "South Korea": 5, "Argentina": 9, "Brazil": 7, "Chile": 5, "Mexico": 4, "United States": 8, "Canada": 2}, "regions": {"WEU": 8, "EEU": 6, "ME": 5, "AFR": 4, "APAC": 10, "LATAM": 25, "NA": 10}}, {"study": "RAINIER", "phase": "2", "nct": "NCT06496607", "mab": "solrikitug", "total_sites": 23, "n_countries": 1, "countries": {"United States": 23}, "regions": {"WEU": 0, "NA": 23}}, {"study": "ETESIAN", "phase": "1a/2b", "nct": "NCT06592768", "mab": "briquilimab", "total_sites": 6, "n_countries": 1, "countries": {"Canada": 6}, "regions": {"WEU": 0, "NA": 6}}, {"study": "NAZARE", "phase": "2", "nct": "NCT06748053", "mab": "GSK5784283", "total_sites": 138, "n_countries": 9, "countries": {"Germany": 12, "Spain": 16, "United Kingdom": 4, "Bulgaria": 15, "Czech": 3, "Romania": 7, "Japan": 20, "United States": 55, "Canada": 6}, "regions": {"WEU": 32, "EEU": 25, "APAC": 20, "NA": 61}}, {"study": "EXHALE2", "phase": "3", "nct": "NCT05763121", "mab": "dexpramipexole", "total_sites": 333, "n_countries": 20, "countries": {"United Kingdom": 31, "Bulgaria": 22, "Georgia": 10, "North Macedonia": 7, "Poland": 23, "Romania": 6, "Serbia": 11, "Ukraine": 18, "Lebanon": 5, "China": 1, "Japan": 43, "South Korea": 12, "Argentina": 16, "Brazil": 12, "Colombia": 4, "Mexico": 6, "Peru": 10, "Puerto Rico": 1, "United States": 85, "Canada": 10}, "regions": {"WEU": 31, "EEU": 97, "ME": 5, "APAC": 56, "LATAM": 49, "NA": 95}}, {"study": "EXHALE3", "phase": "3", "nct": "NCT05813288", "mab": "dexpramipexole", "total_sites": 252, "n_countries": 25, "countries": {"France": 11, "Germany": 14, "Hungary": 7, "Italy": 5, "Spain": 12, "United Kingdom": 4, "Croatia": 3, "Czech": 7, "Lithuania": 3, "Ukraine": 2, "Israel": 5, "Turkey": 7, "South Africa": 21, "India": 11, "China": 1, "Japan": 1, "South Korea": 6, "Taiwan": 10, "Argentina": 21, "Brazil": 5, "Chile": 10, "Mexico": 7, "Peru": 7, "Puerto Rico": 4, "United States": 68}, "regions": {"WEU": 53, "EEU": 15, "ME": 12, "AFR": 21, "INDIA": 11, "APAC": 18, "LATAM": 54, "NA": 68}}, {"study": "AIRLYMPUS", "phase": "2", "nct": "NCT06676319", "mab": "Lunsekimig", "total_sites": 160, "n_countries": 19, "countries": {"Belgium": 3, "Denmark": 1, "France": 3, "Germany": 3, "Hungary": 4, "Italy": 1, "Spain": 10, "Sweden": 2, "United Kingdom": 6, "Poland": 2, "Romania": 1, "Israel": 6, "Turkey": 3, "China": 38, "Taiwan": 2, "Argentina": 14, "Chile": 10, "United States": 44, "Canada": 7}, "regions": {"WEU": 33, "EEU": 3, "ME": 9, "APAC": 40, "LATAM": 24, "NA": 51}}, {"study": "EXHALE4", "phase": "3", "nct": "NCT05748600", "mab": "dexpramipexole", "total_sites": 321, "n_countries": 18, "countries": {"Austria": 1, "United Kingdom": 18, "Poland": 22, "Romania": 8, "Ukraine": 21, "Israel": 7, "Turkey": 15, "South Africa": 19, "Malaysia": 1, "South Korea": 10, "Taiwan": 9, "Thailand": 1, "Argentina": 16, "Brazil": 10, "Mexico": 4, "Puerto Rico": 7, "United States": 143, "Canada": 9}, "regions": {"WEU": 19, "EEU": 51, "ME": 22, "AFR": 19, "APAC": 21, "LATAM": 37, "NA": 152}}, {"study": "HORIZON", "phase": "3", "nct": "NCT06023589", "mab": "tezepelumab", "total_sites": 124, "n_countries": 18, "countries": {"France": 9, "Hungary": 3, "Netherlands": 2, "Spain": 8, "United Kingdom": 8, "Poland": 3, "Romania": 1, "South Africa": 8, "China": 9, "Japan": 10, "South Korea": 4, "Philippines": 4, "Argentina": 10, "Brazil": 7, "Colombia": 3, "Mexico": 4, "United States": 26, "Canada": 5}, "regions": {"WEU": 30, "EEU": 4, "AFR": 8, "APAC": 27, "LATAM": 24, "NA": 31}}, {"study": "NIMBLE", "phase": "3", "nct": "NCT04718389", "mab": "depemokimab", "total_sites": 398, "n_countries": 21, "countries": {"Austria": 2, "Finland": 2, "France": 30, "Germany": 28, "Ireland": 3, "Italy": 31, "Netherlands": 10, "Norway": 2, "Portugal": 4, "Spain": 30, "Sweden": 5, "Switzerland": 4, "United Kingdom": 17, "Slovenia": 1, "Israel": 9, "Japan": 66, "Taiwan": 6, "Australia": 16, "Puerto Rico": 1, "United States": 119, "Canada": 12}, "regions": {"WEU": 168, "EEU": 1, "ME": 9, "APAC": 88, "LATAM": 1, "NA": 131}}, {"study": "CSJ117 Ph2", "phase": "2", "nct": "NCT04410523", "mab": "CSJ117", "total_sites": 116, "n_countries": 15, "countries": {"Belgium": 2, "Germany": 17, "Hungary": 5, "Bulgaria": 2, "Czech": 4, "Latvia": 5, "Poland": 6, "Russia": 6, "Slovakia": 2, "Japan": 12, "Philippines": 5, "Argentina": 19, "Guatemala": 4, "United States": 21, "Canada": 6}, "regions": {"WEU": 24, "EEU": 25, "APAC": 17, "LATAM": 23, "NA": 27}}, {"study": "APATURA", "phase": "2", "nct": "NCT04643158", "mab": "AZD1402", "total_sites": 39, "n_countries": 10, "countries": {"Germany": 9, "Hungary": 1, "Spain": 3, "United Kingdom": 4, "Poland": 7, "Ukraine": 1, "South Korea": 8, "Taiwan": 1, "Australia": 3, "Canada": 2}, "regions": {"WEU": 17, "EEU": 8, "APAC": 12, "NA": 2}}, {"study": "MIRACLE", "phase": "3", "nct": "NCT03186209", "mab": "Benralizumab", "total_sites": 79, "n_countries": 4, "countries": {"China": 58, "South Korea": 15, "Philippines": 2, "Taiwan": 4}, "regions": {"WEU": 0, "APAC": 79}}, {"study": "FB825", "phase": "2", "nct": "NCT05008965", "mab": "FB825", "total_sites": 16, "n_countries": 1, "countries": {"Taiwan": 16}, "regions": {"WEU": 0, "APAC": 16}}, {"study": "SUNRISE", "phase": "3", "nct": "NCT05398263", "mab": "tezepelumab", "total_sites": 65, "n_countries": 12, "countries": {"Czech": 6, "Poland": 9, "Turkey": 4, "India": 3, "South Korea": 4, "Thailand": 4, "Brazil": 8, "Chile": 8, "Mexico": 7, "Peru": 1, "United States": 9, "Canada": 2}, "regions": {"WEU": 0, "EEU": 15, "ME": 4, "INDIA": 3, "APAC": 8, "LATAM": 24, "NA": 11}}, {"study": "DOMINICA", "phase": "3", "nct": "NCT05692180", "mab": "benralizumab", "total_sites": 87, "n_countries": 11, "countries": {"France": 7, "Germany": 2, "Italy": 7, "Spain": 8, "United Kingdom": 5, "Poland": 5, "South Korea": 5, "Taiwan": 5, "Argentina": 10, "United States": 28, "Canada": 5}, "regions": {"WEU": 29, "EEU": 5, "APAC": 10, "LATAM": 10, "NA": 33}}, {"study": "AJAX", "phase": "2", "nct": "NCT06020014", "mab": "AZD4604", "total_sites": 163, "n_countries": 18, "countries": {"Denmark": 9, "France": 9, "Germany": 12, "Spain": 7, "Sweden": 6, "United Kingdom": 9, "Bulgaria": 5, "South Africa": 6, "India": 7, "South Korea": 9, "Malaysia": 8, "Philippines": 6, "Taiwan": 9, "Thailand": 5, "Vietnam": 8, "Argentina": 7, "Brazil": 10, "United States": 31}, "regions": {"WEU": 52, "EEU": 5, "AFR": 6, "INDIA": 7, "APAC": 45, "LATAM": 17, "NA": 31}}, {"study": "Rocantinlimab", "phase": "2", "nct": "NCT06376045", "mab": "Rocantinlimab", "total_sites": 151, "n_countries": 19, "countries": {"United Kingdom": 4, "Hungary": 4, "Bulgaria": 5, "Czech": 4, "Poland": 8, "Romania": 5, "China": 16, "Hong Kong": 3, "Japan": 12, "South Korea": 8, "Taiwan": 4, "Thailand": 3, "Australia": 2, "Argentina": 10, "Chile": 5, "Colombia": 3, "Mexico": 2, "United States": 48, "Canada": 5}, "regions": {"WEU": 8, "EEU": 22, "APAC": 48, "LATAM": 20, "NA": 53}}, {"study": "BREADTH", "phase": "2", "nct": "NCT07323654", "mab": "KT-621", "total_sites": 27, "n_countries": 4, "countries": {"United Kingdom": 3, "Serbia": 3, "Slovakia": 1, "United States": 20}, "regions": {"WEU": 3, "EEU": 4, "NA": 20}}, {"study": "UMBRIEL", "phase": "2", "nct": "NCT06932263", "mab": "Tozorakimab", "total_sites": 204, "n_countries": 21, "countries": {"France": 7, "Greece": 6, "Hungary": 7, "Spain": 7, "Italy": 4, "Israel": 4, "Turkey": 6, "South Africa": 7, "India": 10, "China": 16, "Japan": 15, "South Korea": 8, "Philippines": 6, "Taiwan": 8, "Vietnam": 7, "Thailand": 6, "Argentina": 7, "Brazil": 10, "Chile": 7, "Peru": 5, "United States": 51}, "regions": {"WEU": 31, "ME": 10, "AFR": 7, "INDIA": 10, "APAC": 66, "LATAM": 29, "NA": 51}}, {"study": "ARRIVAL", "phase": "3", "nct": "NCT06473779", "mab": "tezepelumab", "total_sites": 85, "n_countries": 12, "countries": {"Belgium": 5, "Denmark": 4, "France": 7, "Germany": 7, "Italy": 8, "Spain": 7, "United Kingdom": 4, "Bulgaria": 10, "Argentina": 11, "Mexico": 6, "United States": 9, "Canada": 7}, "regions": {"WEU": 42, "EEU": 10, "LATAM": 17, "NA": 16}}, {"study": "NOZOMI", "phase": "3", "nct": "NCT04048343", "mab": "tezepelumab", "total_sites": 5, "n_countries": 1, "countries": {"Japan": 5}, "regions": {"WEU": 0, "APAC": 5}}, {"study": "Povorcitinib", "phase": "2", "nct": "NCT05851443", "mab": "Povorcitinib", "total_sites": 84, "n_countries": 7, "countries": {"Germany": 5, "Spain": 3, "Poland": 6, "Japan": 15, "Argentina": 23, "United States": 26, "Canada": 6}, "regions": {"WEU": 8, "EEU": 6, "APAC": 15, "LATAM": 23, "NA": 32}}, {"study": "CPB-201", "phase": "2", "nct": "NCT04773678", "mab": "CPB-201", "total_sites": 76, "n_countries": 5, "countries": {"Hungary": 2, "Poland": 9, "China": 22, "South Korea": 4, "United States": 39}, "regions": {"WEU": 2, "EEU": 9, "APAC": 26, "NA": 39}}, {"study": "RPT193", "phase": "2", "nct": "NCT05935332", "mab": "RPT193", "total_sites": 29, "n_countries": 4, "countries": {"Bulgaria": 6, "Czech": 1, "Poland": 9, "United States": 13}, "regions": {"WEU": 0, "EEU": 16, "NA": 13}}, {"study": "PF-07275315", "phase": "2", "nct": "NCT06977581", "mab": "PF-07275315", "total_sites": 16, "n_countries": 3, "countries": {"China": 2, "Japan": 3, "United States": 11}, "regions": {"WEU": 0, "APAC": 5, "NA": 11}}, {"study": "povorcitinib", "phase": "2", "nct": "NCT05851443", "mab": "povorcitinib", "total_sites": 84, "n_countries": 7, "countries": {"Germany": 5, "Spain": 3, "Poland": 6, "Japan": 15, "Argentina": 23, "United States": 26, "Canada": 6}, "regions": {"WEU": 8, "EEU": 6, "APAC": 15, "LATAM": 23, "NA": 32}}, {"study": "Rizalbrutinib", "phase": "2", "nct": "NCT05104892", "mab": "Rizalbrutinib", "total_sites": 51, "n_countries": 13, "countries": {"Germany": 1, "Hungary": 3, "Spain": 3, "United Kingdom": 2, "Bulgaria": 4, "Poland": 9, "Romania": 1, "Turkey": 2, "South Korea": 6, "Argentina": 6, "Chile": 7, "Mexico": 5, "Canada": 2}, "regions": {"WEU": 9, "EEU": 14, "ME": 2, "APAC": 6, "LATAM": 18, "NA": 2}}, {"study": "FLASH*", "phase": "2", "nct": "NCT05251259", "mab": "Atuliflapon", "total_sites": 392, "n_countries": 24, "countries": {"France": 5, "Germany": 11, "Hungary": 11, "Italy": 14, "Netherlands": 4, "Spain": 16, "United Kingdom": 24, "Bulgaria": 12, "Croatia": 7, "Poland": 23, "Romania": 18, "Serbia": 8, "Slovakia": 8, "Slovenia": 4, "Ukraine": 6, "Turkey": 6, "South Africa": 9, "Japan": 32, "South Korea": 10, "Australia": 4, "Argentina": 26, "Chile": 11, "Mexico": 12, "United States": 111}, "regions": {"WEU": 85, "EEU": 86, "ME": 6, "AFR": 9, "APAC": 46, "LATAM": 49, "NA": 111}}, {"study": "LEVANTE", "phase": "2", "nct": "NCT06529419", "mab": "AZD8630", "total_sites": 232, "n_countries": 23, "countries": {"Belgium": 3, "Denmark": 7, "France": 5, "Germany": 10, "Italy": 4, "Netherlands": 2, "Spain": 8, "United Kingdom": 3, "Czechia": 8, "Slovakia": 8, "Ukraine": 11, "Israel": 4, "Turkey": 5, "South Africa": 6, "China": 22, "Hong Kong": 4, "Japan": 19, "South Korea": 8, "Taiwan": 8, "Argentina": 9, "Chile": 6, "Mexico": 9, "United States": 63}, "regions": {"WEU": 42, "EEU": 27, "ME": 9, "AFR": 6, "APAC": 61, "LATAM": 24, "NA": 63}}, {"study": "TERMINATED", "phase": "3", "nct": "NCT03052517", "mab": "QAW039/Fevipiprant", "total_sites": 346, "n_countries": 41, "countries": {"Austria": 3, "Belgium": 8, "Finland": 1, "France": 8, "Germany": 11, "Greece": 6, "Hungary": 13, "Spain": 15, "Switzerland": 2, "United Kingdom": 6, "Bulgaria": 4, "Czech": 6, "Estonia": 2, "Latvia": 2, "Lithuania": 6, "Poland": 6, "Romania": 11, "Russia": 17, "Serbia": 5, "Slovakia": 11, "Israel": 7, "Lebanon": 3, "Saudi Arabia": 1, "Turkey": 6, "India": 8, "China": 12, "Japan": 46, "Malaysia": 3, "Philippines": 6, "Singapore": 2, "Taiwan": 1, "Australia": 3, "Argentina": 23, "Brazil": 9, "Colombia": 3, "Guatemala": 5, "Mexico": 3, "Peru": 6, "Puerto Rico": 1, "United States": 46, "Canada": 9}, "regions": {"WEU": 73, "EEU": 70, "ME": 17, "INDIA": 8, "APAC": 73, "LATAM": 50, "NA": 55}}, {"study": "QAW039/Fevipiprant", "phase": "3", "nct": "NCT02555683", "mab": "QAW039/Fevipiprant", "total_sites": 233, "n_countries": 27, "countries": {"Austria": 8, "Belgium": 11, "Denmark": 1, "Finland": 4, "France": 9, "Germany": 23, "Greece": 1, "Hungary": 8, "Iceland": 1, "Ireland": 2, "Spain": 1, "Switzerland": 5, "United Kingdom": 16, "Estonia": 3, "Latvia": 3, "Lithuania": 8, "Poland": 8, "Romania": 16, "China": 18, "Philippines": 3, "Singapore": 3, "Vietnam": 3, "Australia": 5, "Argentina": 4, "Brazil": 9, "Guatemala": 5, "United States": 55}, "regions": {"WEU": 90, "EEU": 38, "APAC": 32, "LATAM": 18, "NA": 55}}, {"study": "QGE031", "phase": "2", "nct": "NCT01716754", "mab": "QGE031", "total_sites": 150, "n_countries": 24, "countries": {"Finland": 3, "France": 4, "Germany": 8, "Hungary": 4, "Italy": 6, "Portugal": 5, "United Kingdom": 4, "Czechia": 6, "Poland": 2, "Romania": 13, "Russian Federation": 15, "Slovakia": 8, "Israel": 6, "Turkey": 6, "South Africa": 3, "India": 3, "South Korea": 7, "Singapore": 2, "Argentina": 13, "Guatemala": 3, "Mexico": 2, "Panama": 1, "United States": 22, "Canada": 4}, "regions": {"WEU": 34, "EEU": 44, "ME": 12, "AFR": 3, "INDIA": 3, "APAC": 9, "LATAM": 19, "NA": 26}}, {"study": "Tilrekimig", "phase": "2", "nct": "NCT06977581", "mab": "Tilrekimig", "total_sites": 132, "n_countries": 15, "countries": {"Belgium": 3, "Hungary": 5, "Spain": 5, "Italy": 6, "United Kingdom": 7, "Bulgaria": 4, "Czech": 4, "Poland": 7, "South Africa": 3, "China": 20, "Japan": 10, "South Korea": 10, "Taiwan": 6, "Argentina": 6, "United States": 36}, "regions": {"WEU": 26, "EEU": 15, "AFR": 3, "APAC": 46, "LATAM": 6, "NA": 36}}, {"study": "WIN378", "phase": "2", "nct": "NCT07120503", "mab": "WIN378", "total_sites": 73, "n_countries": 8, "countries": {"France": 5, "Germany": 10, "Spain": 8, "Sweden": 3, "Bulgaria": 5, "Australia": 7, "Argentina": 14, "United States": 21}, "regions": {"WEU": 26, "EEU": 5, "APAC": 7, "LATAM": 14, "NA": 21}}, {"study": "SAR445399", "phase": "2", "nct": "NCT07225569", "mab": "SAR445399", "total_sites": 66, "n_countries": 15, "countries": {"Belgium": 3, "France": 5, "Germany": 5, "Hungary": 4, "Italy": 5, "Spain": 5, "Sweden": 2, "Turkey (T\u00fcrkiye)": 6, "China": 4, "Japan": 2, "Australia": 1, "Argentina": 2, "Brazil": 1, "United States": 16, "Canada": 5}, "regions": {"WEU": 29, "ME": 6, "APAC": 7, "LATAM": 3, "NA": 21}}];
+const REGION_MAP = {"Argentina": "LATAM", "Australia": "APAC", "Austria": "WEU", "Belgium": "WEU", "Brazil": "LATAM", "Bulgaria": "EEU", "Canada": "NA", "Chile": "LATAM", "China": "APAC", "Colombia": "LATAM", "Croatia": "EEU", "Czech": "EEU", "Czechia": "EEU", "Denmark": "WEU", "Estonia": "EEU", "Finland": "WEU", "France": "WEU", "Georgia": "EEU", "Germany": "WEU", "Greece": "WEU", "Guatemala": "LATAM", "Hong Kong": "APAC", "Hungary": "EEU", "Iceland": "WEU", "India": "INDIA", "Ireland": "WEU", "Israel": "ME", "Italy": "WEU", "Japan": "APAC", "Kenya": "ME", "Latvia": "EEU", "Lebanon": "ME", "Lithuania": "EEU", "Malaysia": "APAC", "Mexico": "LATAM", "Netherlands": "WEU", "New Zealand": "APAC", "North Macedonia": "EEU", "Norway": "WEU", "Panama": "LATAM", "Peru": "LATAM", "Philippines": "APAC", "Poland": "EEU", "Portugal": "WEU", "Puerto Rico": "LATAM", "Romania": "EEU", "Russia": "EEU", "Russian Federation": "EEU", "Saudi Arabia": "ME", "Serbia": "EEU", "Singapore": "APAC", "Slovakia": "EEU", "Slovenia": "EEU", "South Africa": "ME", "South Korea": "APAC", "Spain": "WEU", "Sweden": "WEU", "Switzerland": "WEU", "Taiwan": "APAC", "Thailand": "APAC", "Turkey": "ME", "Turkey (T\u00fcrkiye)": "ME", "Ukraine": "EEU", "United Kingdom": "WEU", "United States": "NA", "Vietnam": "APAC"};
+const REGION_LABELS = {"NA": "North America", "WEU": "Western Europe", "EEU": "Eastern Europe", "APAC": "Asia Pacific", "LATAM": "Latin America", "ME": "Middle East & Africa", "INDIA": "India", "AFR": "Africa"};
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+
+function phaseMatch(trial, filter) {
+  if (filter === 'all') return true;
+  const p = String(trial.phase);
+  if (filter === '2') return p.startsWith('2') || p === '1a/2b';
+  if (filter === '3') return p.startsWith('3');
+  return true;
+}
+
+function phaseBadge(phase) {
+  const p = String(phase);
+  let cls = 'phase-2';
+  if (p.startsWith('3')) cls = 'phase-3';
+  if (p.startsWith('1')) cls = 'phase-1';
+  return `<span class="phase ${cls}">Ph${phase}</span>`;
+}
+
+function nctLink(nct) {
+  const n = nct.trim();
+  return `<a class="nct-link" href="https://clinicaltrials.gov/study/${n}" target="_blank">${n}</a>`;
+}
+
+function getRegionSites(trial, region) {
+  let total = 0;
+  Object.entries(trial.countries).forEach(([c, n]) => {
+    if (REGION_MAP[c] === region) total += n;
+  });
+  return total;
+}
+
+function pctBar(val, maxVal, type) {
+  const pct = Math.round(val * 100);
+  const w = maxVal > 0 ? (val / maxVal * 100) : 0;
+  const fillClass = type === 'region' ? 'region' : (pct >= 30 ? 'high' : pct >= 10 ? 'medium' : 'low');
+  const numClass = type === 'region' ? 'region-pct' : '';
+  return `<div class="pct-bar"><div class="bar-track"><div class="bar-fill ${fillClass}" style="width:${w}%"></div></div><span class="pct-num ${numClass}">${pct}%</span></div>`;
+}
+
+function blueScale(v) {
+  const r = Math.round(255 - v * (255 - 21));
+  const g = Math.round(255 - v * (255 - 56));
+  const b = Math.round(255 - v * (255 - 100));
+  return `rgb(${r},${g},${b})`;
+}
+
+function heatColor(pct) {
+  if (pct <= 0) return '#ffffff';
+  return blueScale(Math.min(pct / 60, 1));
+}
+
+function textColor(pct) {
+  return pct > 25 ? 'white' : '#1F3864';
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+
+function showTab(name, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  el.classList.add('active');
+  if (name === 'heatmap') buildHeatmap();
+  if (name === 'trials') buildTrialBrowser();
+  if (name === 'map') buildMap();
+}
+
+// ── Country / Region View ──────────────────────────────────────────────────
+
+function onViewModeChange() {
+  const vm = document.getElementById('view-mode').value;
+  document.getElementById('select-label').textContent = vm === 'country' ? 'Country' : 'Region';
+  populateSelect();
+}
+
+function populateSelect() {
+  const vm = document.getElementById('view-mode').value;
+  const sel = document.getElementById('country-select');
+  sel.innerHTML = '';
+
+  if (vm === 'country') {
+    const countries = [...new Set(TRIALS.flatMap(t => Object.keys(t.countries)))].sort();
+    countries.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c; opt.textContent = c;
+      if (c === 'United States') opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } else {
+    Object.entries(REGION_LABELS).forEach(([k, v]) => {
+      const opt = document.createElement('option');
+      opt.value = k; opt.textContent = `${k} — ${v}`;
+      if (k === 'APAC') opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+  updateCountryView();
+}
+
+function updateCountryView() {
+  const vm    = document.getElementById('view-mode').value;
+  const sel   = document.getElementById('country-select').value;
+  const phaseF = document.getElementById('phase-filter-c').value;
+  const minS  = parseInt(document.getElementById('min-sites-c').value);
+
+  const isCountry = vm === 'country';
+  const region = isCountry ? REGION_MAP[sel] : null;
+  const regionLabel = region ? (REGION_LABELS[region] || region) : null;
+
+  // Build rows
+  const rows = [];
+  TRIALS.forEach(t => {
+    if (!phaseMatch(t, phaseF)) return;
+    const ctySites = isCountry ? (t.countries[sel] || 0) : 0;
+    const regSites = isCountry ? getRegionSites(t, region) : getRegionSites(t, sel);
+    const selSites = isCountry ? ctySites : regSites;
+    if (selSites < minS) return;
+    const ctyPct = t.total_sites > 0 ? ctySites / t.total_sites : 0;
+    const regPct = t.total_sites > 0 ? regSites / t.total_sites : 0;
+    rows.push({ ...t, ctySites, regSites, selSites, ctyPct, regPct });
+  });
+  rows.sort((a, b) => b.selSites - a.selSites || b.ctyPct - a.ctyPct);
+
+  const usedTrials = rows.filter(r => r.selSites > 0);
+  const totalSel   = rows.reduce((s, r) => s + r.selSites, 0);
+  const avgPct     = usedTrials.length > 0
+    ? (usedTrials.reduce((s,r) => s + (isCountry ? r.ctyPct : r.regPct), 0) / usedTrials.length * 100).toFixed(1) : 0;
+  const maxPct     = usedTrials.length > 0
+    ? (Math.max(...usedTrials.map(r => isCountry ? r.ctyPct : r.regPct)) * 100).toFixed(0) : 0;
+
+  const selLabel = isCountry ? sel : (REGION_LABELS[sel] || sel);
+  document.getElementById('country-table-title').textContent = `Trials — ${selLabel}`;
+  document.getElementById('country-table-count').textContent = `${rows.length} trials shown`;
+  document.getElementById('country-cards-label').textContent = isCountry ? `${sel} summary` : `${selLabel} summary`;
+
+  const trials5  = rows.filter(r => r.selSites >= 5);
+  const trials10 = rows.filter(r => r.selSites >= 10);
+  const trials20 = rows.filter(r => r.selSites >= 20);
+
+  // Country summary cards
+  document.getElementById('country-cards').innerHTML = `
+    <div class="card"><div class="num">${usedTrials.length}</div><div class="lbl">Trials with ≥1 site</div><div class="sub-num">of ${TRIALS.length} total</div></div>
+    <div class="card"><div class="num">${trials5.length}</div><div class="lbl">Trials with ≥5 sites</div><div class="sub-num">of ${TRIALS.length} total</div></div>
+    <div class="card"><div class="num">${trials10.length}</div><div class="lbl">Trials with ≥10 sites</div><div class="sub-num">of ${TRIALS.length} total</div></div>
+    <div class="card"><div class="num">${trials20.length}</div><div class="lbl">Trials with ≥20 sites</div><div class="sub-num">of ${TRIALS.length} total</div></div>
+    <div class="card"><div class="num">${totalSel}</div><div class="lbl">Total sites</div><div class="sub-num">across all trials</div></div>
+    <div class="card"><div class="num">${avgPct}%</div><div class="lbl">Avg % of trial sites</div><div class="sub-num">trials with ≥1 site</div></div>
+    <div class="card"><div class="num">${maxPct}%</div><div class="lbl">Max % in any trial</div><div class="sub-num">${usedTrials.length > 0 ? usedTrials[0].study : '—'}</div></div>
+  `;
+
+  // Region context (country mode only)
+  const banner   = document.getElementById('region-context-banner');
+  const regSec   = document.getElementById('region-cards-section');
+  const regCards = document.getElementById('region-cards');
+
+  if (isCountry && region) {
+    // Context banner
+    const regTrials = TRIALS.filter(t => phaseMatch(t, phaseF) && getRegionSites(t, region) > 0);
+    const regTotalSites = regTrials.reduce((s,t) => s + getRegionSites(t, region), 0);
+    const regAvgPct = regTrials.length > 0
+      ? (regTrials.reduce((s,t) => s + getRegionSites(t,region)/t.total_sites, 0) / regTrials.length * 100).toFixed(1) : 0;
+    const ctyShareOfReg = regTotalSites > 0 ? (totalSel / regTotalSites * 100).toFixed(0) : 0;
+
+    banner.style.display = 'flex';
+    banner.innerHTML = `
+      <span class="ctx-label">🗺️ &nbsp;${sel} is in <strong>${region} — ${regionLabel}</strong></span>
+    `;
+
+    // Region cards
+    regSec.style.display = 'block';
+    document.getElementById('region-cards-label').textContent = `${region} — ${regionLabel} context`;
+    regCards.innerHTML = `
+      <div class="card region-card"><div class="num">${regTrials.length}</div><div class="lbl">Trials used ${region}</div><div class="sub-num">of ${TRIALS.length} total</div></div>
+      <div class="card region-card"><div class="num">${regTotalSites}</div><div class="lbl">Total ${region} sites</div><div class="sub-num">across all trials</div></div>
+      <div class="card region-card"><div class="num">${regAvgPct}%</div><div class="lbl">Avg % for ${region}</div><div class="sub-num">trials with ≥1 ${region} site</div></div>
+      <div class="card region-card"><div class="num">${ctyShareOfReg}%</div><div class="lbl">${sel}'s share of ${region}</div><div class="sub-num">by site count</div></div>
+    `;
+  } else {
+    banner.style.display = 'none';
+    regSec.style.display = 'none';
+  }
+
+  // Table headers
+  const thead = document.getElementById('country-thead');
+  if (isCountry) {
+    thead.innerHTML = `<tr>
+      <th onclick="sortTable('country-table',0)" data-col="0">Study <span class="sort-icon">⇅</span></th>
+      <th onclick="sortTable('country-table',1)" data-col="1">Drug <span class="sort-icon">⇅</span></th>
+      <th onclick="sortTable('country-table',2)" data-col="2">Phase <span class="sort-icon">⇅</span></th>
+      <th onclick="sortTable('country-table',3)" data-col="3">${sel} Sites <span class="sort-icon">⇅</span></th>
+      <th onclick="sortTable('country-table',4)" data-col="4">${region} Sites <span class="sort-icon">⇅</span></th>
+      <th onclick="sortTable('country-table',5)" data-col="5">Total Sites <span class="sort-icon">⇅</span></th>
+      <th onclick="sortTable('country-table',6)" data-col="6">% Country <span class="sort-icon">⇅</span></th>
+      <th onclick="sortTable('country-table',7)" data-col="7">% Region <span class="sort-icon">⇅</span></th>
+      <th>NCT</th>
+    </tr>`;
+  } else {
+    thead.innerHTML = `<tr>
+      <th onclick="sortTable('country-table',0)" data-col="0">Study <span class="sort-icon">⇅</span></th>
+      <th onclick="sortTable('country-table',1)" data-col="1">Drug <span class="sort-icon">⇅</span></th>
+      <th onclick="sortTable('country-table',2)" data-col="2">Phase <span class="sort-icon">⇅</span></th>
+      <th onclick="sortTable('country-table',3)" data-col="3">${selLabel} Sites <span class="sort-icon">⇅</span></th>
+      <th onclick="sortTable('country-table',4)" data-col="4">Total Sites <span class="sort-icon">⇅</span></th>
+      <th onclick="sortTable('country-table',5)" data-col="5">% of Trial <span class="sort-icon">⇅</span></th>
+      <th>NCT</th>
+    </tr>`;
+  }
+
+  // Table body
+  const maxCtyPct = rows.length > 0 ? Math.max(...rows.map(r => r.ctyPct)) : 1;
+  const maxRegPct = rows.length > 0 ? Math.max(...rows.map(r => r.regPct)) : 1;
+
+  const tbody = document.getElementById('country-tbody');
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">No trials match this filter.</td></tr>';
+    return;
+  }
+
+  if (isCountry) {
+    tbody.innerHTML = rows.map(r => `<tr>
+      <td><strong>${r.study}</strong></td>
+      <td style="font-size:12px;">${r.mab}</td>
+      <td>${phaseBadge(r.phase)}</td>
+      <td><span class="${r.ctySites > 0 ? 'site-count' : 'zero'}">${r.ctySites || '0'}</span></td>
+      <td><span class="${r.regSites > 0 ? 'site-count' : 'zero'}" style="color:var(--region-text)">${r.regSites || '0'}</span></td>
+      <td>${r.total_sites}</td>
+      <td>${r.ctySites > 0 ? pctBar(r.ctyPct, maxCtyPct, 'country') : '<span class="zero">—</span>'}</td>
+      <td>${r.regSites > 0 ? pctBar(r.regPct, maxRegPct, 'region') : '<span class="zero">—</span>'}</td>
+      <td>${nctLink(r.nct)}</td>
+    </tr>`).join('');
+  } else {
+    tbody.innerHTML = rows.map(r => `<tr>
+      <td><strong>${r.study}</strong></td>
+      <td style="font-size:12px;">${r.mab}</td>
+      <td>${phaseBadge(r.phase)}</td>
+      <td><span class="${r.regSites > 0 ? 'site-count' : 'zero'}">${r.regSites || '0'}</span></td>
+      <td>${r.total_sites}</td>
+      <td>${r.regSites > 0 ? pctBar(r.regPct, maxRegPct, 'region') : '<span class="zero">—</span>'}</td>
+      <td>${nctLink(r.nct)}</td>
+    </tr>`).join('');
+  }
+}
+
+// ── Heatmap ────────────────────────────────────────────────────────────────
+
+function buildHeatmap() {
+  const group  = document.getElementById('hm-group').value;
+  const metric = document.getElementById('hm-metric').value;
+  const phaseF = document.getElementById('hm-phase').value;
+  const minVal = parseFloat(document.getElementById('hm-min').value);
+  const trials = TRIALS.filter(t => phaseMatch(t, phaseF));
+
+  if (trials.length === 0) {
+    document.getElementById('hm-table').innerHTML = '<tr><td class="empty">No trials match.</td></tr>';
+    return;
+  }
+
+  const allRows = group === 'region'
+    ? Object.keys(REGION_LABELS)
+    : [...new Set(TRIALS.flatMap(t => Object.keys(t.countries)))].sort();
+
+  function getVal(trial, key) {
+    if (group === 'region') return getRegionSites(trial, key);
+    return trial.countries[key] || 0;
+  }
+
+  const activeRows = allRows.filter(r => trials.some(t => getVal(t, r) > 0));
+  const table = document.getElementById('hm-table');
+  let html = '<thead><tr><th class="row-header">' + (group === 'region' ? 'Region' : 'Country') + '</th>';
+  trials.forEach(t => { html += `<th title="${t.mab} Ph${t.phase}">${t.study}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  activeRows.forEach(rowKey => {
+    const label = group === 'region' ? `${rowKey} — ${REGION_LABELS[rowKey] || rowKey}` : rowKey;
+    html += `<tr><td class="row-label">${label}</td>`;
+    trials.forEach(t => {
+      const sites = getVal(t, rowKey);
+      const pct   = t.total_sites > 0 ? sites / t.total_sites * 100 : 0;
+      const colorVal = metric === 'pct' ? pct : sites;
+      const dispVal  = metric === 'pct' ? (pct > 0 ? pct.toFixed(0) + '%' : '') : (sites > 0 ? sites : '');
+      const shouldColor = colorVal >= minVal && colorVal > 0;
+      const bg = shouldColor ? heatColor(metric === 'pct' ? pct : Math.min(sites, 80)) : '#fff';
+      const fg = metric === 'pct' ? textColor(pct) : (sites > 50 ? 'white' : '#1F3864');
+      html += `<td style="background:${bg};color:${fg};" title="${t.study} / ${label}: ${sites} sites (${pct.toFixed(1)}%)">${dispVal}</td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody>';
+  table.innerHTML = html;
+
+  document.getElementById('hm-legend').innerHTML = `
+    <span style="font-weight:bold;color:var(--navy);">Color scale:</span>
+    <div class="legend-item"><div class="legend-swatch" style="background:#fff;border:1px solid #ddd"></div> 0 / not used</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#BBDEFB"></div> Low</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#1976D2"></div> Medium</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#0D47A1"></div> High</div>
+    <span style="margin-left:auto;color:var(--muted);">${trials.length} trials · ${activeRows.length} ${group}s</span>
+  `;
+}
+
+// ── Trial Browser ──────────────────────────────────────────────────────────
+
+function buildTrialBrowser() {
+  const phaseF = document.getElementById('tb-phase').value;
+  const mabF   = document.getElementById('tb-mab').value;
+  const search = document.getElementById('tb-search').value.toLowerCase();
+  const rows   = TRIALS.filter(t => {
+    if (!phaseMatch(t, phaseF)) return false;
+    if (mabF !== 'all' && t.mab !== mabF) return false;
+    if (search && !t.study.toLowerCase().includes(search) &&
+        !t.mab.toLowerCase().includes(search) &&
+        !t.nct.toLowerCase().includes(search)) return false;
+    return true;
+  });
+  document.getElementById('tb-count').textContent = `${rows.length} trials`;
+  const tbody = document.getElementById('tb-tbody');
+  if (rows.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No trials match.</td></tr>'; return; }
+  tbody.innerHTML = rows.map(t => {
+    const top = Object.entries(t.countries).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c} (${n})`).join(', ');
+    return `<tr>
+      <td><strong>${t.study}</strong></td>
+      <td style="font-size:12px;">${t.mab}</td>
+      <td>${phaseBadge(t.phase)}</td>
+      <td><span class="site-count">${t.total_sites}</span></td>
+      <td>${t.n_countries}</td>
+      <td style="font-size:11px;color:var(--muted);">${top}</td>
+      <td>${nctLink(t.nct)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Sort ───────────────────────────────────────────────────────────────────
+
+const sortState = {};
+function sortTable(tableId, col) {
+  const table = document.getElementById(tableId);
+  const tbody = table.querySelector('tbody');
+  const rows  = Array.from(tbody.querySelectorAll('tr'));
+  const key   = tableId + '_' + col;
+  const asc   = sortState[key] = !sortState[key];
+  rows.sort((a, b) => {
+    const av = a.cells[col]?.textContent.trim() || '';
+    const bv = b.cells[col]?.textContent.trim() || '';
+    const an = parseFloat(av.replace(/[%,]/g,''));
+    const bn = parseFloat(bv.replace(/[%,]/g,''));
+    if (!isNaN(an) && !isNaN(bn)) return asc ? an-bn : bn-an;
+    return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+  table.querySelectorAll('th').forEach((th,i) => {
+    th.classList.toggle('sorted', i===col);
+    const icon = th.querySelector('.sort-icon');
+    if (icon) icon.textContent = i===col ? (asc?'↑':'↓') : '⇅';
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+
+const mabs = [...new Set(TRIALS.map(t => t.mab))].sort();
+mabs.forEach(m => {
+  const opt = document.createElement('option');
+  opt.value = m; opt.textContent = m;
+  document.getElementById('tb-mab').appendChild(opt);
+});
+
+populateSelect();
+buildTrialBrowser();
+
+// ── World Map ───────────────────────────────────────────────────────────────
+
+// Country name normalization for GeoJSON matching
+const NAME_NORM = {
+  'Czech': 'Czech Republic',
+  'Czechia': 'Czech Republic',
+  'Russia': 'Russia',
+  'Russian Federation': 'Russia',
+  'Turkey (Türkiye)': 'Turkey',
+  'South Korea': 'South Korea',
+  'United States': 'United States of America',
+  'United Kingdom': 'United Kingdom',
+};
+
+// Also normalize the ID_TO_NAME map to match our trial data keys
+const ID_NAME_OVERRIDES = {
+  '643': 'Russia',        // dataset may say "Russia" but our data has "Russia"
+  '578': 'Norway',
+  '840': 'United States',
+  '826': 'United Kingdom',
+  '410': 'South Korea',
+  '203': 'Czech',
+  '807': 'North Macedonia',
+  '344': 'Hong Kong',
+  '158': 'Taiwan',
+};
+
+function normalizeName(n) { return NAME_NORM[n] || n; }
+
+function getCountryData(metric, phaseF, minTrials) {
+  const result = {};
+  TRIALS.forEach(t => {
+    if (!phaseMatch(t, phaseF)) return;
+    Object.entries(t.countries).forEach(([c, sites]) => {
+      if (!result[c]) result[c] = { trials: 0, sites: 0, pctSum: 0, trialList: [] };
+      result[c].trials++;
+      result[c].sites += sites;
+      result[c].pctSum += t.total_sites > 0 ? sites / t.total_sites * 100 : 0;
+      result[c].trialList.push({ study: t.study, mab: t.mab, phase: t.phase, sites, total: t.total_sites, pct: t.total_sites > 0 ? sites/t.total_sites*100 : 0 });
+    });
+  });
+  // Compute avg pct
+  Object.values(result).forEach(d => { d.avgPct = d.trials > 0 ? d.pctSum / d.trials : 0; });
+  // Filter by min trials
+  Object.keys(result).forEach(k => { if (result[k].trials < minTrials) delete result[k]; });
+  return result;
+}
+
+function mapColor(val, max, metric) {
+  if (!val || val <= 0) return '#D6E8F7';
+  const v = Math.min(val / max, 1);
+  // white-blue to dark navy scale
+  const r = Math.round(214 - v * (214 - 21));
+  const g = Math.round(232 - v * (232 - 56));
+  const b = Math.round(247 - v * (247 - 100));
+  return `rgb(${r},${g},${b})`;
+}
+
+function buildMap() {
+  const metric  = document.getElementById('map-metric').value;
+  const phaseF  = document.getElementById('map-phase').value;
+  const minT    = parseInt(document.getElementById('map-min').value) || 0;
+  const data    = getCountryData(metric, phaseF, minT);
+
+  const metricLabels = { trials: 'Number of Trials', sites: 'Total Sites', pct: 'Avg % of Trial Sites' };
+  document.getElementById('map-title').textContent = metricLabels[metric] + ' by Country';
+
+  // Compute max for scale
+  const vals = Object.values(data).map(d => metric === 'trials' ? d.trials : metric === 'sites' ? d.sites : d.avgPct);
+  const maxVal = vals.length > 0 ? Math.max(...vals) : 1;
+
+  // Legend
+  const steps = [0.2, 0.4, 0.6, 0.8, 1.0];
+  document.getElementById('map-legend-inline').innerHTML =
+    '<span style="color:var(--muted);">Low</span>' +
+    steps.map(s => `<div style="width:22px;height:14px;background:${mapColor(s * maxVal, maxVal, metric)};border-radius:2px;display:inline-block;"></div>`).join('') +
+    '<span style="color:var(--muted);">High</span>';
+
+  // Draw map using fetch of GeoJSON
+  const svg = document.getElementById('world-map');
+  svg._metric = metric; svg._phase = phaseF; svg._min = minT;
+
+  fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+    .then(r => r.json())
+    .then(world => {
+      // Use topojson via CDN
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js';
+      script.onload = () => drawMap(world, data, maxVal, metric, phaseF, minT);
+      if (window.topojson) { drawMap(world, data, maxVal, metric, phaseF, minT); }
+      else { document.head.appendChild(script); }
+    })
+    .catch(() => {
+      svg.innerHTML = '<text x="500" y="250" text-anchor="middle" fill="#999" font-size="16">Map data could not be loaded. Please check your internet connection.</text>';
+    });
+}
+
+function drawMap(world, data, maxVal, metric, phaseF, minT) {
+  const svg = document.getElementById('world-map');
+
+  // Equirectangular projection
+  function project(lon, lat) {
+    const x = (lon + 180) / 360 * 1000;
+    const y = (90 - lat) / 180 * 500;
+    return [x, y];
+  }
+
+  // Convert a ring to SVG path, but SKIP rings that cross the antimeridian
+  // (these cause the horizontal line artifacts)
+  function ringToPath(ring, featureId) {
+    const pts = ring.map(([lon, lat]) => project(lon, lat));
+    if (String(featureId) === '643') {
+      const avgX = pts.reduce((s,p) => s+p[0], 0) / pts.length;
+      if (avgX > 950) return '';
+      // Log max jump for Russia rings to find right threshold
+      let maxJump = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const jump = Math.abs(pts[i][0] - pts[i-1][0]);
+        if (jump > maxJump) maxJump = jump;
+      }
+      if (maxJump > 50) console.log(`Russia ring avgX=${avgX.toFixed(0)} maxJump=${maxJump.toFixed(0)}`);
+      return pts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'Z';
+    }
+    // For Norway (578): skip rings whose average latitude > 74° (Svalbard/Jan Mayen)
+    if (String(featureId) === '578') {
+      const avgLat = ring.reduce((s,[,lat]) => s+lat, 0) / ring.length;
+      if (avgLat > 74) return '';
+    }
+    // For all others: skip rings with a sudden screen jump > 400px (antimeridian artifact)
+    for (let i = 1; i < pts.length; i++) {
+      if (Math.abs(pts[i][0] - pts[i-1][0]) > 400) return '';
+    }
+    return pts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'Z';
+  }
+
+  function featureToPath(geometry, featureId) {
+    if (!geometry) return '';
+    const paths = [];
+    if (geometry.type === 'Polygon') {
+      geometry.coordinates.forEach(ring => {
+        const p = ringToPath(ring, featureId);
+        if (p) paths.push(p);
+      });
+    } else if (geometry.type === 'MultiPolygon') {
+      geometry.coordinates.forEach(poly => poly.forEach(ring => {
+        const p = ringToPath(ring, featureId);
+        if (p) paths.push(p);
+      }));
+    }
+    return paths.join(' ');
+  }
+
+  // Get country name from feature
+  const countries = topojson.feature(world, world.objects.countries);
+
+  // Use a hardcoded ID->name map for the countries we care about
+  const ID_TO_NAME = {
+    "4":"Afghanistan","8":"Albania","12":"Algeria","24":"Angola","32":"Argentina","36":"Australia","40":"Austria","50":"Bangladesh","56":"Belgium","68":"Bolivia","76":"Brazil","100":"Bulgaria","116":"Cambodia","120":"Cameroon","124":"Canada","144":"Sri Lanka","152":"Chile","156":"China","170":"Colombia","188":"Costa Rica","191":"Croatia","192":"Cuba","203":"Czech Republic","208":"Denmark","218":"Ecuador","818":"Egypt","231":"Ethiopia","246":"Finland","250":"France","276":"Germany","288":"Ghana","300":"Greece","320":"Guatemala","332":"Haiti","340":"Honduras","348":"Hungary","356":"India","360":"Indonesia","364":"Iran","368":"Iraq","372":"Ireland","376":"Israel","380":"Italy","388":"Jamaica","392":"Japan","400":"Jordan","398":"Kazakhstan","404":"Kenya","410":"South Korea","414":"Kuwait","418":"Laos","422":"Lebanon","430":"Liberia","434":"Libya","442":"Luxembourg","484":"Mexico","504":"Morocco","508":"Mozambique","516":"Namibia","524":"Nepal","528":"Netherlands","554":"New Zealand","566":"Nigeria","578":"Norway","586":"Pakistan","591":"Panama","604":"Peru","608":"Philippines","616":"Poland","620":"Portugal","630":"Puerto Rico","634":"Qatar","642":"Romania","643":"Russia","682":"Saudi Arabia","694":"Sierra Leone","703":"Slovakia","705":"Slovenia","706":"Somalia","710":"South Africa","724":"Spain","729":"Sudan","752":"Sweden","756":"Switzerland","762":"Tajikistan","764":"Thailand","788":"Tunisia","792":"Turkey","800":"Uganda","804":"Ukraine","784":"United Arab Emirates","826":"United Kingdom","840":"United States of America","858":"Uruguay","862":"Venezuela","704":"Vietnam","887":"Yemen","894":"Zambia","716":"Zimbabwe","807":"North Macedonia","688":"Serbia","233":"Estonia","428":"Latvia","440":"Lithuania","344":"Hong Kong","158":"Taiwan","702":"Singapore","458":"Malaysia","496":"Mongolia"
+  };
+
+  const tooltip = document.getElementById('map-tooltip');
+  const svgEl   = document.getElementById('world-map');
+
+  // Clear and redraw
+  svg.innerHTML = '';
+
+
+
+  const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  bg.setAttribute('width','1000'); bg.setAttribute('height','500');
+  bg.setAttribute('fill','#C8DCF0'); svg.appendChild(bg);
+
+  // ClipPath to prevent shapes bleeding outside map bounds
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  defs.innerHTML = '<clipPath id="map-clip"><rect x="0" y="0" width="1000" height="500"/></clipPath>';
+  svg.appendChild(defs);
+
+  countries.features.forEach(feature => {
+    const id   = feature.id;
+    const name = ID_TO_NAME[String(id)] || '';
+    const geom = feature.geometry;
+    if (!geom) return;
+
+    // Compute bounding box to skip Antarctica
+    let minLat = 90, maxLat = -90;
+    const allRings = geom.type === 'Polygon' ? geom.coordinates : geom.coordinates.map(p => p[0]);
+    allRings.forEach(ring => ring.forEach(([, lat]) => {
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }));
+    if (maxLat < -60) return; // skip Antarctica
+
+    // Find matching country in our data — check ID override first, then name
+    const overrideName = ID_NAME_OVERRIDES[String(id)];
+    let matchKey = null;
+    if (overrideName && data[overrideName]) {
+      matchKey = overrideName;
+    } else {
+      for (const [k] of Object.entries(data)) {
+        const norm = normalizeName(k);
+        if (norm === name || k === name) { matchKey = k; break; }
+      }
+    }
+
+    const d    = matchKey ? data[matchKey] : null;
+    const val  = d ? (metric === 'trials' ? d.trials : metric === 'sites' ? d.sites : d.avgPct) : 0;
+    const fill = d && val > 0 ? mapColor(val, maxVal, metric) : '#D6E8F7';
+
+    const pathD = featureToPath(geom, id);
+    if (!pathD) return;
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', pathD);
+    path.setAttribute('fill', fill);
+    path.setAttribute('class', 'map-country');
+    path.setAttribute('stroke', 'white');
+    path.setAttribute('stroke-width', '0.4');
+    path.setAttribute('clip-path', 'url(#map-clip)');
+
+    if (d) {
+      path.addEventListener('mouseenter', (e) => {
+        path.setAttribute('stroke', '#1F3864');
+        path.setAttribute('stroke-width', '1.5');
+        showMapTooltip(e, matchKey || name, d, metric, phaseF);
+      });
+      path.addEventListener('mousemove', (e) => moveTooltip(e));
+      path.addEventListener('mouseleave', () => {
+        path.setAttribute('stroke', 'white');
+        path.setAttribute('stroke-width', '0.4');
+        tooltip.style.display = 'none';
+      });
+      path.addEventListener('click', () => {
+        // Jump to country view
+        document.querySelectorAll('.tab').forEach((t,i) => {
+          t.classList.toggle('active', i === 0);
+        });
+        document.querySelectorAll('.panel').forEach((p,i) => {
+          p.classList.toggle('active', i === 0);
+        });
+        document.getElementById('view-mode').value = 'country';
+        document.getElementById('select-label').textContent = 'Country';
+        populateSelect();
+        const sel = document.getElementById('country-select');
+        for (let i = 0; i < sel.options.length; i++) {
+          if (normalizeName(sel.options[i].value) === name || sel.options[i].value === matchKey) {
+            sel.selectedIndex = i; break;
+          }
+        }
+        updateCountryView();
+        tooltip.style.display = 'none';
+      });
+    }
+
+    svg.appendChild(path);
+
+    // Add value label for countries with data
+    if (d && val > 0) {
+      // Compute centroid
+      let sumX = 0, sumY = 0, count = 0;
+      const geom = feature.geometry;
+      const rings = geom.type === 'Polygon' ? [geom.coordinates[0]] : geom.coordinates.map(p => p[0]);
+      rings.forEach(ring => {
+        ring.forEach(pt => {
+          const [x, y] = project(pt[0], pt[1]);
+          sumX += x; sumY += y; count++;
+        });
+      });
+      if (count > 0) {
+        const cx = sumX / count;
+        const cy = sumY / count;
+        const label = metric === 'pct' ? val.toFixed(0) + '%' : val;
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+        text.setAttribute('x', cx.toFixed(1));
+        text.setAttribute('y', (cy + 3).toFixed(1));
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('font-size', '8');
+        text.setAttribute('font-weight', 'bold');
+        text.setAttribute('fill', val / maxVal > 0.5 ? 'white' : '#1F3864');
+        text.setAttribute('pointer-events', 'none');
+        text.textContent = String(label);
+        svg.appendChild(text);
+      }
+    }
+  });
+
+  // ── EU Inset ──────────────────────────────────────────────────────────────
+  // Inset box: bottom-right, 280x220 px in SVG coords
+  const INSET = { x: 710, y: 270, w: 285, h: 225 };
+  // EU viewport: lon 340-500 px (approx -5 to 30 lon), lat 130-240 px (approx 35 to 72 lat)
+  const EU_LON = [-12, 32];
+  const EU_LAT = [34, 72];
+
+  function projectEU(lon, lat) {
+    const x = INSET.x + (lon - EU_LON[0]) / (EU_LON[1] - EU_LON[0]) * INSET.w;
+    const y = INSET.y + (1 - (lat - EU_LAT[0]) / (EU_LAT[1] - EU_LAT[0])) * INSET.h;
+    return [x, y];
+  }
+
+  function ringToPathEU(ring, featureId) {
+    // Skip Norway's Svalbard (avg lat > 74°)
+    if (String(featureId) === '578') {
+      const avgLat = ring.reduce((s,[,lat]) => s+lat, 0) / ring.length;
+      if (avgLat > 74) return '';
+    }
+    const pts = ring.map(([lon, lat]) => projectEU(lon, lat));
+    // Skip rings with sudden jumps > 200px in inset
+    for (let i = 1; i < pts.length; i++) {
+      if (Math.abs(pts[i][0] - pts[i-1][0]) > 200) return '';
+    }
+    // Only render if centroid is near the inset area
+    const avgX = pts.reduce((s,p) => s+p[0], 0) / pts.length;
+    if (avgX < INSET.x - 50 || avgX > INSET.x + INSET.w + 50) return '';
+    return pts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'Z';
+  }
+
+  function featureToPathEU(geometry, featureId) {
+    if (!geometry) return '';
+    const paths = [];
+    if (geometry.type === 'Polygon') {
+      geometry.coordinates.forEach(ring => { const p = ringToPathEU(ring, featureId); if (p) paths.push(p); });
+    } else if (geometry.type === 'MultiPolygon') {
+      geometry.coordinates.forEach(poly => poly.forEach(ring => { const p = ringToPathEU(ring, featureId); if (p) paths.push(p); }));
+    }
+    return paths.join(' ');
+  }
+
+  // Inset background + border
+  const insetBg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  insetBg.setAttribute('x', INSET.x - 2); insetBg.setAttribute('y', INSET.y - 16);
+  insetBg.setAttribute('width', INSET.w + 4); insetBg.setAttribute('height', INSET.h + 20);
+  insetBg.setAttribute('fill', '#C8DCF0'); insetBg.setAttribute('rx', '4');
+  insetBg.setAttribute('stroke', '#1F3864'); insetBg.setAttribute('stroke-width', '1.5');
+  svg.appendChild(insetBg);
+
+  // Inset label
+  const insetLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
+  insetLabel.setAttribute('x', INSET.x + 2); insetLabel.setAttribute('y', INSET.y - 4);
+  insetLabel.setAttribute('font-size', '9'); insetLabel.setAttribute('font-weight', 'bold');
+  insetLabel.setAttribute('fill', '#1F3864'); insetLabel.setAttribute('pointer-events', 'none');
+  insetLabel.textContent = 'EUROPE (inset)';
+  svg.appendChild(insetLabel);
+
+  // EU country IDs (approximate)
+  const EU_IDS = new Set([
+    '40','56','100','191','203','208','233','246','250','276','300',
+    '348','372','380','428','440','442','528','578','616','620',
+    '642','703','705','724','752','756','826','807','688','372'
+  ]);
+
+  countries.features.forEach(feature => {
+    const id   = feature.id;
+    const name = ID_TO_NAME[String(id)] || '';
+    const geom = feature.geometry;
+    if (!geom) return;
+
+    // Only draw countries that overlap the EU viewport
+    let minLon2 = 180, maxLon2 = -180, minLat2 = 90, maxLat2 = -90;
+    const rings2 = geom.type === 'Polygon' ? [geom.coordinates[0]] : geom.coordinates.map(p => p[0]);
+    rings2.forEach(ring => ring.forEach(([lon, lat]) => {
+      if (lon < minLon2) minLon2 = lon; if (lon > maxLon2) maxLon2 = lon;
+      if (lat < minLat2) minLat2 = lat; if (lat > maxLat2) maxLat2 = lat;
+    }));
+    if (maxLon2 < EU_LON[0] || minLon2 > EU_LON[1] || maxLat2 < EU_LAT[0] || minLat2 > EU_LAT[1]) return;
+
+    const overrideName2 = ID_NAME_OVERRIDES[String(id)];
+    let matchKey2 = null;
+    if (overrideName2 && data[overrideName2]) {
+      matchKey2 = overrideName2;
+    } else {
+      for (const [k] of Object.entries(data)) {
+        const norm = normalizeName(k);
+        if (norm === name || k === name) { matchKey2 = k; break; }
+      }
+    }
+    const d2   = matchKey2 ? data[matchKey2] : null;
+    const val2 = d2 ? (metric === 'trials' ? d2.trials : metric === 'sites' ? d2.sites : d2.avgPct) : 0;
+    const fill2 = d2 && val2 > 0 ? mapColor(val2, maxVal, metric) : '#D6E8F7';
+
+    const pathD2 = featureToPathEU(geom, id);
+    if (!pathD2) return;
+
+    const path2 = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path2.setAttribute('d', pathD2);
+    path2.setAttribute('fill', fill2);
+    path2.setAttribute('stroke', 'white');
+    path2.setAttribute('stroke-width', '0.6');
+    path2.style.cursor = d2 ? 'pointer' : 'default';
+
+    if (d2) {
+      path2.addEventListener('mouseenter', (e) => {
+        path2.setAttribute('stroke', '#1F3864'); path2.setAttribute('stroke-width', '1.5');
+        showMapTooltip(e, matchKey2 || name, d2, metric, phaseF);
+      });
+      path2.addEventListener('mousemove', (e) => moveTooltip(e));
+      path2.addEventListener('mouseleave', () => {
+        path2.setAttribute('stroke', 'white'); path2.setAttribute('stroke-width', '0.6');
+        document.getElementById('map-tooltip').style.display = 'none';
+      });
+    }
+    svg.appendChild(path2);
+
+    // Label
+    if (d2 && val2 > 0) {
+      let sumX2 = 0, sumY2 = 0, cnt2 = 0;
+      rings2.forEach(ring => ring.forEach(pt => {
+        const [px, py] = projectEU(pt[0], pt[1]);
+        sumX2 += px; sumY2 += py; cnt2++;
+      }));
+      if (cnt2 > 0) {
+        const cx2 = sumX2 / cnt2, cy2 = sumY2 / cnt2;
+        // Only label if centroid is within inset bounds
+        if (cx2 >= INSET.x && cx2 <= INSET.x + INSET.w && cy2 >= INSET.y && cy2 <= INSET.y + INSET.h) {
+          const lbl2 = metric === 'pct' ? val2.toFixed(0) + '%' : String(val2);
+          const t2 = document.createElementNS('http://www.w3.org/2000/svg','text');
+          t2.setAttribute('x', cx2.toFixed(1)); t2.setAttribute('y', (cy2 + 3).toFixed(1));
+          t2.setAttribute('text-anchor', 'middle'); t2.setAttribute('font-size', '7');
+          t2.setAttribute('font-weight', 'bold'); t2.setAttribute('pointer-events', 'none');
+          t2.setAttribute('fill', val2 / maxVal > 0.5 ? 'white' : '#1F3864');
+          t2.textContent = lbl2;
+          svg.appendChild(t2);
+        }
+      }
+    }
+  });
+
+  // Inset border on top
+  const insetBorder = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  insetBorder.setAttribute('x', INSET.x - 2); insetBorder.setAttribute('y', INSET.y - 16);
+  insetBorder.setAttribute('width', INSET.w + 4); insetBorder.setAttribute('height', INSET.h + 20);
+  insetBorder.setAttribute('fill', 'none'); insetBorder.setAttribute('rx', '4');
+  insetBorder.setAttribute('stroke', '#1F3864'); insetBorder.setAttribute('stroke-width', '1.5');
+  insetBorder.setAttribute('pointer-events', 'none');
+  svg.appendChild(insetBorder);
+}
+
+function showMapTooltip(e, country, d, metric, phaseF) {
+  const tooltip = document.getElementById('map-tooltip');
+  const region  = REGION_MAP[country] || '—';
+  const rl      = REGION_LABELS[region] || region;
+
+  // Top 5 trials by sites
+  const top5 = [...d.trialList].sort((a,b) => b.sites - a.sites).slice(0,5);
+
+  tooltip.innerHTML = `
+    <div style="font-weight:bold;font-size:14px;color:var(--navy);margin-bottom:4px;">${country}</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #eee;">${region} — ${rl}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div><div style="font-size:18px;font-weight:bold;color:var(--navy);">${d.trials}</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;">Trials</div></div>
+      <div><div style="font-size:18px;font-weight:bold;color:var(--navy);">${d.sites}</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;">Total sites</div></div>
+      <div><div style="font-size:18px;font-weight:bold;color:var(--navy);">${d.avgPct.toFixed(1)}%</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;">Avg % / trial</div></div>
+      <div><div style="font-size:12px;font-weight:bold;color:var(--muted);">Click to explore →</div></div>
+    </div>
+    <div style="font-size:10px;font-weight:bold;color:var(--muted);text-transform:uppercase;margin-bottom:5px;">Top trials by sites</div>
+    ${top5.map(t => `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f5f5f5;font-size:11px;">
+      <span><strong>${t.study}</strong> <span style="color:var(--muted);">${t.mab}</span></span>
+      <span style="color:var(--navy);font-weight:bold;">${t.sites} <span style="color:var(--muted);font-weight:normal;">(${t.pct.toFixed(0)}%)</span></span>
+    </div>`).join('')}
+  `;
+  tooltip.style.display = 'block';
+  moveTooltip(e);
+}
+
+function moveTooltip(e) {
+  const tooltip = document.getElementById('map-tooltip');
+  const svg     = document.getElementById('world-map');
+  const rect    = svg.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const tw = 240, th = 200;
+  const left = x + tw + 10 > rect.width ? x - tw - 10 : x + 10;
+  const top  = y + th > rect.height ? y - th : y + 10;
+  tooltip.style.left = left + 'px';
+  tooltip.style.top  = top  + 'px';
+}
+</script>
+</body>
+</html>
