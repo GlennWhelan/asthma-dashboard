@@ -840,24 +840,34 @@ function buildMap() {
   svg._metric = metric; svg._phase = phaseF; svg._min = minT;
 
   // Load D3 and topojson, then draw
-  function loadScript(src, cb) {
-    if (document.querySelector(`script[src="${src}"]`)) { cb(); return; }
+  function loadScript(src, fallback, cb) {
+    if (typeof cb === 'undefined') { cb = fallback; fallback = null; }
+    if (document.querySelector(`script[src="${src}"]`) && 
+        (src.includes('topojson') ? window.topojson : window.d3)) { cb(); return; }
     const s = document.createElement('script');
-    s.src = src; s.onload = cb;
+    s.src = src;
+    s.onload = cb;
+    s.onerror = fallback ? () => loadScript(fallback, cb) : () => {
+      document.getElementById('world-map').innerHTML = '<text x="500" y="250" text-anchor="middle" fill="#999" font-size="14">Map library failed to load.</text>';
+    };
     document.head.appendChild(s);
   }
 
   fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
     .then(r => r.json())
     .then(world => {
-      loadScript('https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js', () => {
-        loadScript('https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js', () => {
-          drawMap(world, data, maxVal, metric, phaseF, minT);
-        });
-      });
+      loadScript(
+        'https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js',
+        'https://unpkg.com/topojson-client@3/dist/topojson-client.min.js',
+        () => loadScript(
+          'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js',
+          'https://unpkg.com/d3@7/dist/d3.min.js',
+          () => drawMap(world, data, maxVal, metric, phaseF, minT)
+        )
+      );
     })
     .catch(() => {
-      svg.innerHTML = '<text x="500" y="250" text-anchor="middle" fill="#999" font-size="16">Map data could not be loaded.</text>';
+      svg.innerHTML = '<text x="500" y="250" text-anchor="middle" fill="#999" font-size="14">Map data could not be loaded.</text>';
     });
 }
 
