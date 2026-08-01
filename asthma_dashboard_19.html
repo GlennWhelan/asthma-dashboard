@@ -894,8 +894,7 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
 
   // ClipPath to prevent shapes bleeding outside map bounds
   const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
-  defs.innerHTML = '<clipPath id="map-clip"><rect x="0" y="0" width="1000" height="500"/></clipPath>' +
-    `<clipPath id="eu-clip"><rect x="${INSET.x}" y="${INSET.y}" width="${INSET.w}" height="${INSET.h}"/></clipPath>`;
+  defs.innerHTML = '<clipPath id="map-clip"><rect x="0" y="0" width="1000" height="500"/></clipPath>';
   svg.appendChild(defs);
 
   countries.features.forEach(feature => {
@@ -980,7 +979,8 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
     if (d && val > 0) {
       // Use D3 centroid
       const centroid = geoPath.centroid(feature);
-      if (centroid && !isNaN(centroid[0]) && !isNaN(centroid[1])) {
+      if (centroid && !isNaN(centroid[0]) && !isNaN(centroid[1]) &&
+          centroid[0] > 0 && centroid[0] < 1000 && centroid[1] > 0 && centroid[1] < 500) {
         const cx = centroid[0];
         const cy = centroid[1];
         const label = metric === 'pct' ? val.toFixed(0) + '%' : val;
@@ -1001,6 +1001,15 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
   // ── EU Inset ──────────────────────────────────────────────────────────────
   // Inset box: bottom-right, 280x220 px in SVG coords
   const INSET = { x: 15, y: 270, w: 240, h: 195 };
+
+  // Add EU clip now that INSET is defined
+  const euClip = document.createElementNS('http://www.w3.org/2000/svg','clipPath');
+  euClip.setAttribute('id','eu-clip');
+  const euRect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  euRect.setAttribute('x', INSET.x); euRect.setAttribute('y', INSET.y);
+  euRect.setAttribute('width', INSET.w); euRect.setAttribute('height', INSET.h);
+  euClip.appendChild(euRect);
+  defs.appendChild(euClip);
   // EU viewport: lon 340-500 px (approx -5 to 30 lon), lat 130-240 px (approx 35 to 72 lat)
   const EU_LON = [-12, 32];
   const EU_LAT = [34, 72];
