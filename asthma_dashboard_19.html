@@ -823,6 +823,7 @@ function mapColor(val, max, metric) {
 }
 
 function buildMap() {
+  console.log('buildMap called, d3=', typeof d3, 'topojson=', typeof topojson);
   const metric  = document.getElementById('map-metric').value;
   const phaseF  = document.getElementById('map-phase').value;
   const minT    = parseInt(document.getElementById('map-min').value) || 0;
@@ -847,10 +848,10 @@ function buildMap() {
   svg._metric = metric; svg._phase = phaseF; svg._min = minT;
 
   fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-    .then(r => r.json())
-    .then(world => drawMap(world, data, maxVal, metric, phaseF, minT))
-    .catch(() => {
-      // Try fallback URL
+    .then(r => { console.log('fetch status:', r.status); return r.json(); })
+    .then(world => { console.log('world loaded, features:', world?.objects?.countries?.geometries?.length); drawMap(world, data, maxVal, metric, phaseF, minT); })
+    .catch(e => {
+      console.log('primary fetch failed:', e.message);
       fetch('https://unpkg.com/world-atlas@2/countries-110m.json')
         .then(r => r.json())
         .then(world => drawMap(world, data, maxVal, metric, phaseF, minT))
