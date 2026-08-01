@@ -823,7 +823,7 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
     // For Russia (643): clip all points to max lon 170° to avoid dateline wrap artifacts
     let processedRing = ring;
     if (String(featureId) === '643') {
-      processedRing = ring.map(([lon, lat]) => [Math.min(lon, 170), lat]);
+      processedRing = ring; // Let SVG clipPath handle the far-east cutoff
     }
     // For Norway (578): skip rings whose average latitude > 74° (Svalbard/Jan Mayen)
     if (String(featureId) === '578') {
@@ -879,7 +879,8 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
 
   // ClipPath to prevent shapes bleeding outside map bounds
   const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
-  defs.innerHTML = '<clipPath id="map-clip"><rect x="0" y="0" width="1000" height="500"/></clipPath>';
+  defs.innerHTML = '<clipPath id="map-clip"><rect x="0" y="0" width="1000" height="500"/></clipPath>' +
+    '<clipPath id="russia-clip"><rect x="0" y="0" width="805" height="500"/></clipPath>';
   svg.appendChild(defs);
 
   countries.features.forEach(feature => {
@@ -922,7 +923,7 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
     path.setAttribute('class', 'map-country');
     path.setAttribute('stroke', 'white');
     path.setAttribute('stroke-width', '0.4');
-    path.setAttribute('clip-path', 'url(#map-clip)');
+    path.setAttribute('clip-path', String(id) === '643' ? 'url(#russia-clip)' : 'url(#map-clip)');
 
     if (d) {
       path.addEventListener('mouseenter', (e) => {
@@ -992,7 +993,7 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
 
   // ── EU Inset ──────────────────────────────────────────────────────────────
   // Inset box: bottom-right, 280x220 px in SVG coords
-  const INSET = { x: 710, y: 270, w: 285, h: 225 };
+  const INSET = { x: 15, y: 270, w: 240, h: 195 };
   // EU viewport: lon 340-500 px (approx -5 to 30 lon), lat 130-240 px (approx 35 to 72 lat)
   const EU_LON = [-12, 32];
   const EU_LAT = [34, 72];
