@@ -820,19 +820,25 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
   // Convert a ring to SVG path, but SKIP rings that cross the antimeridian
   // (these cause the horizontal line artifacts)
   function ringToPath(ring, featureId) {
-    const pts = ring.map(([lon, lat]) => project(lon, lat));
+    // For Russia (643): clip all points to max lon 170° to avoid dateline wrap artifacts
+    let processedRing = ring;
     if (String(featureId) === '643') {
-      const avgX = pts.reduce((s,p) => s+p[0], 0) / pts.length;
-      if (avgX > 950) return '';
-      // Log max jump for Russia rings to find right threshold
-      let maxJump = 0;
-      for (let i = 1; i < pts.length; i++) {
-        const jump = Math.abs(pts[i][0] - pts[i-1][0]);
-        if (jump > maxJump) maxJump = jump;
-      }
-      if (maxJump > 50) console.log(`Russia ring avgX=${avgX.toFixed(0)} maxJump=${maxJump.toFixed(0)}`);
-      return pts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'Z';
+      processedRing = ring.map(([lon, lat]) => [Math.min(lon, 170), lat]);
     }
+    // For Norway (578): skip rings whose average latitude > 74° (Svalbard/Jan Mayen)
+    if (String(featureId) === '578') {
+      const avgLat = ring.reduce((s,[,lat]) => s+lat, 0) / ring.length;
+      if (avgLat > 74) return '';
+    }
+    const pts = processedRing.map(([lon, lat]) => project(lon, lat));
+    // For all others: skip rings with a sudden screen jump > 400px (antimeridian artifact)
+    if (String(featureId) !== '643') {
+      for (let i = 1; i < pts.length; i++) {
+        if (Math.abs(pts[i][0] - pts[i-1][0]) > 400) return '';
+      }
+    }
+    return pts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'Z';
+  }
     // For Norway (578): skip rings whose average latitude > 74° (Svalbard/Jan Mayen)
     if (String(featureId) === '578') {
       const avgLat = ring.reduce((s,[,lat]) => s+lat, 0) / ring.length;
