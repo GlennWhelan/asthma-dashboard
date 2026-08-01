@@ -726,7 +726,7 @@ const NAME_NORM = {
 
 // Also normalize the ID_TO_NAME map to match our trial data keys
 const ID_NAME_OVERRIDES = {
-  '643': 'Russia',        // dataset may say "Russia" but our data has "Russia"
+  '643': 'Russia',
   '578': 'Norway',
   '840': 'United States',
   '826': 'United Kingdom',
@@ -735,6 +735,53 @@ const ID_NAME_OVERRIDES = {
   '807': 'North Macedonia',
   '344': 'Hong Kong',
   '158': 'Taiwan',
+  '36':  'Australia',
+  '250': 'France',
+  '56':  'Belgium',
+  '40':  'Austria',
+  '276': 'Germany',
+  '380': 'Italy',
+  '724': 'Spain',
+  '528': 'Netherlands',
+  '616': 'Poland',
+  '642': 'Romania',
+  '804': 'Ukraine',
+  '792': 'Turkey',
+  '756': 'Switzerland',
+  '752': 'Sweden',
+  '246': 'Finland',
+  '208': 'Denmark',
+  '300': 'Greece',
+  '620': 'Portugal',
+  '348': 'Hungary',
+  '203': 'Czech',
+  '703': 'Slovakia',
+  '705': 'Slovenia',
+  '191': 'Croatia',
+  '100': 'Bulgaria',
+  '688': 'Serbia',
+  '372': 'Ireland',
+  '233': 'Estonia',
+  '428': 'Latvia',
+  '440': 'Lithuania',
+  '356': 'India',
+  '156': 'China',
+  '392': 'Japan',
+  '76':  'Brazil',
+  '32':  'Argentina',
+  '152': 'Chile',
+  '170': 'Colombia',
+  '604': 'Peru',
+  '484': 'Mexico',
+  '710': 'South Africa',
+  '376': 'Israel',
+  '792': 'Turkey',
+  '586': 'Pakistan',
+  '554': 'New Zealand',
+  '608': 'Philippines',
+  '764': 'Thailand',
+  '458': 'Malaysia',
+  '702': 'Singapore',
 };
 
 function normalizeName(n) { return NAME_NORM[n] || n; }
@@ -847,7 +894,8 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
 
   // ClipPath to prevent shapes bleeding outside map bounds
   const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
-  defs.innerHTML = '<clipPath id="map-clip"><rect x="0" y="0" width="1000" height="500"/></clipPath>';
+  defs.innerHTML = '<clipPath id="map-clip"><rect x="0" y="0" width="1000" height="500"/></clipPath>' +
+    `<clipPath id="eu-clip"><rect x="${INSET.x}" y="${INSET.y}" width="${INSET.w}" height="${INSET.h}"/></clipPath>`;
   svg.appendChild(defs);
 
   countries.features.forEach(feature => {
@@ -1051,6 +1099,7 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
     path2.setAttribute('fill', fill2);
     path2.setAttribute('stroke', 'white');
     path2.setAttribute('stroke-width', '0.6');
+    path2.setAttribute('clip-path', 'url(#eu-clip)');
     path2.style.cursor = d2 ? 'pointer' : 'default';
 
     if (d2) {
