@@ -839,17 +839,6 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
     }
     return pts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'Z';
   }
-    // For Norway (578): skip rings whose average latitude > 74° (Svalbard/Jan Mayen)
-    if (String(featureId) === '578') {
-      const avgLat = ring.reduce((s,[,lat]) => s+lat, 0) / ring.length;
-      if (avgLat > 74) return '';
-    }
-    // For all others: skip rings with a sudden screen jump > 400px (antimeridian artifact)
-    for (let i = 1; i < pts.length; i++) {
-      if (Math.abs(pts[i][0] - pts[i-1][0]) > 400) return '';
-    }
-    return pts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'Z';
-  }
 
   function featureToPath(geometry, featureId) {
     if (!geometry) return '';
