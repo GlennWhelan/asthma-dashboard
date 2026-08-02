@@ -934,7 +934,13 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
     const fill = d && val > 0 ? mapColor(val, maxVal, metric) : '#D6E8F7';
 
     const pathD = geoPath(feature) || '';
-    if (!pathD) return;
+
+    // Even if no path, still try to add a label for matched countries
+    if (!pathD && !d) return;
+    if (!pathD && d) {
+      // No geometry but we have data - skip for now
+      return;
+    }
 
     const path = document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('d', pathD);
@@ -980,14 +986,28 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
 
     svg.appendChild(path);
 
+    // Hardcoded centroids for countries where D3 centroid fails (overseas territories etc)
+    const CENTROID_OVERRIDE = {
+      'France': [2.2, 46.2],      // Metropolitan France
+      'Australia': [134.0, -25.0],
+      'United States': [-98.0, 39.5],
+      'Russia': [90.0, 60.0],
+      'Norway': [10.0, 62.0],
+      'New Zealand': [172.0, -42.0],
+    };
+
     // Add value label for countries with data
     if (d && val > 0) {
-      // Use D3 centroid
-      const centroid = geoPath.centroid(feature);
-      if (centroid && !isNaN(centroid[0]) && !isNaN(centroid[1]) &&
-          centroid[0] > 0 && centroid[0] < 1000 && centroid[1] > 0 && centroid[1] < 500) {
-        const cx = centroid[0];
-        const cy = centroid[1];
+      let cx, cy;
+      const co = CENTROID_OVERRIDE[matchKey];
+      if (co) {
+        const proj = projection(co);
+        cx = proj[0]; cy = proj[1];
+      } else {
+        const centroid = geoPath.centroid(feature);
+        cx = centroid[0]; cy = centroid[1];
+      }
+      if (!isNaN(cx) && !isNaN(cy) && cx > 0 && cx < 1000 && cy > 0 && cy < 500) {
         const label = metric === 'pct' ? val.toFixed(0) + '%' : val;
         const text = document.createElementNS('http://www.w3.org/2000/svg','text');
         text.setAttribute('x', cx.toFixed(1));
