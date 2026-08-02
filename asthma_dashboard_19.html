@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Asthma Biologics — Trial Site Intelligence Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <style>
   :root {
     --navy: #1F3864;
@@ -728,65 +726,13 @@ const NAME_NORM = {
 
 // Also normalize the ID_TO_NAME map to match our trial data keys
 const ID_NAME_OVERRIDES = {
-  '4':   'Afghanistan',
-  '32':  'Argentina',
-  '36':  'Australia',
-  '40':  'Austria',
-  '56':  'Belgium',
-  '76':  'Brazil',
-  '100': 'Bulgaria',
-  '124': 'Canada',
-  '152': 'Chile',
-  '156': 'China',
-  '170': 'Colombia',
-  '191': 'Croatia',
-  '203': 'Czech',
-  '208': 'Denmark',
-  '233': 'Estonia',
-  '246': 'Finland',
-  '250': 'France',
-  '276': 'Germany',
-  '300': 'Greece',
-  '348': 'Hungary',
-  '356': 'India',
-  '360': 'Indonesia',
-  '372': 'Ireland',
-  '376': 'Israel',
-  '380': 'Italy',
-  '392': 'Japan',
-  '404': 'Kenya',
-  '410': 'South Korea',
-  '422': 'Lebanon',
-  '428': 'Latvia',
-  '440': 'Lithuania',
-  '458': 'Malaysia',
-  '484': 'Mexico',
-  '528': 'Netherlands',
-  '554': 'New Zealand',
+  '643': 'Russia',        // dataset may say "Russia" but our data has "Russia"
   '578': 'Norway',
-  '586': 'Pakistan',
-  '604': 'Peru',
-  '608': 'Philippines',
-  '616': 'Poland',
-  '620': 'Portugal',
-  '642': 'Romania',
-  '643': 'Russia',
-  '688': 'Serbia',
-  '702': 'Singapore',
-  '703': 'Slovakia',
-  '705': 'Slovenia',
-  '710': 'South Africa',
-  '724': 'Spain',
-  '752': 'Sweden',
-  '756': 'Switzerland',
-  '764': 'Thailand',
-  '792': 'Turkey',
-  '804': 'Ukraine',
-  '807': 'North Macedonia',
-  '826': 'United Kingdom',
   '840': 'United States',
-  '858': 'Uruguay',
-  '100': 'Bulgaria',
+  '826': 'United Kingdom',
+  '410': 'South Korea',
+  '203': 'Czech',
+  '807': 'North Macedonia',
   '344': 'Hong Kong',
   '158': 'Taiwan',
 };
@@ -823,281 +769,361 @@ function mapColor(val, max, metric) {
 }
 
 function buildMap() {
-  const metric = document.getElementById('map-metric').value;
-  const phaseF = document.getElementById('map-phase').value;
-  const minT   = parseInt(document.getElementById('map-min').value) || 0;
-  const data   = getCountryData(metric, phaseF, minT);
+  const metric  = document.getElementById('map-metric').value;
+  const phaseF  = document.getElementById('map-phase').value;
+  const minT    = parseInt(document.getElementById('map-min').value) || 0;
+  const data    = getCountryData(metric, phaseF, minT);
 
   const metricLabels = { trials: 'Number of Trials', sites: 'Total Sites', pct: 'Avg % of Trial Sites' };
   document.getElementById('map-title').textContent = metricLabels[metric] + ' by Country';
 
-  const vals   = Object.values(data).map(d => metric === 'trials' ? d.trials : metric === 'sites' ? d.sites : d.avgPct);
+  // Compute max for scale
+  const vals = Object.values(data).map(d => metric === 'trials' ? d.trials : metric === 'sites' ? d.sites : d.avgPct);
   const maxVal = vals.length > 0 ? Math.max(...vals) : 1;
 
+  // Legend
   const steps = [0.2, 0.4, 0.6, 0.8, 1.0];
   document.getElementById('map-legend-inline').innerHTML =
     '<span style="color:var(--muted);">Low</span>' +
-    steps.map(s => `<div style="width:22px;height:14px;background:${mapColor(s*maxVal,maxVal,metric)};border-radius:2px;display:inline-block;"></div>`).join('') +
+    steps.map(s => `<div style="width:22px;height:14px;background:${mapColor(s * maxVal, maxVal, metric)};border-radius:2px;display:inline-block;"></div>`).join('') +
     '<span style="color:var(--muted);">High</span>';
 
+  // Draw map using fetch of GeoJSON
   const svg = document.getElementById('world-map');
-  svg.innerHTML = '';
+  svg._metric = metric; svg._phase = phaseF; svg._min = minT;
 
   fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
     .then(r => r.json())
-    .then(world => drawMap(world, data, maxVal, metric, phaseF))
-    .catch(() => fetch('https://unpkg.com/world-atlas@2/countries-110m.json')
-      .then(r => r.json())
-      .then(world => drawMap(world, data, maxVal, metric, phaseF))
-      .catch(() => {
-        svg.innerHTML = '<text x="500" y="250" text-anchor="middle" fill="#999" font-size="14">Map data could not be loaded.</text>';
-      }));
+    .then(world => {
+      // Use topojson via CDN
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js';
+      script.onload = () => drawMap(world, data, maxVal, metric, phaseF, minT);
+      if (window.topojson) { drawMap(world, data, maxVal, metric, phaseF, minT); }
+      else { document.head.appendChild(script); }
+    })
+    .catch(() => {
+      svg.innerHTML = '<text x="500" y="250" text-anchor="middle" fill="#999" font-size="16">Map data could not be loaded. Please check your internet connection.</text>';
+    });
 }
 
-// Map ID -> our data key
-const ID_TO_DATA = {
-  '4':'Afghanistan','8':'Albania','12':'Algeria','24':'Angola',
-  '32':'Argentina','36':'Australia','40':'Austria','56':'Belgium',
-  '68':'Bolivia','76':'Brazil','100':'Bulgaria','124':'Canada',
-  '152':'Chile','156':'China','170':'Colombia','191':'Croatia',
-  '203':'Czech','208':'Denmark','218':'Ecuador','233':'Estonia',
-  '246':'Finland','250':'France','276':'Germany','300':'Greece',
-  '320':'Guatemala','348':'Hungary','356':'India','360':'Indonesia',
-  '372':'Ireland','376':'Israel','380':'Italy','392':'Japan',
-  '404':'Kenya','410':'South Korea','422':'Lebanon','428':'Latvia',
-  '440':'Lithuania','458':'Malaysia','484':'Mexico','528':'Netherlands',
-  '554':'New Zealand','566':'Nigeria','578':'Norway','586':'Pakistan',
-  '591':'Panama','604':'Peru','608':'Philippines','616':'Poland',
-  '620':'Portugal','642':'Romania','643':'Russia','682':'Saudi Arabia',
-  '688':'Serbia','702':'Singapore','703':'Slovakia','705':'Slovenia',
-  '710':'South Africa','724':'Spain','752':'Sweden','756':'Switzerland',
-  '764':'Thailand','792':'Turkey','804':'Ukraine',
-  '826':'United Kingdom','840':'United States','858':'Uruguay',
-  '704':'Vietnam','716':'Zimbabwe','807':'North Macedonia',
-  '344':'Hong Kong','158':'Taiwan','630':'Puerto Rico',
-};
-
-// Known geographic centers [lon, lat] for countries whose D3 centroid fails
-const LABEL_CENTER = {
-  'France':         [2.2,   46.2],
-  'Australia':      [134.0,-25.0],
-  'United States':  [-98.0, 39.5],
-  'Russia':         [90.0,  60.0],
-  'Norway':         [10.0,  62.0],
-  'New Zealand':    [172.0,-42.0],
-  'Canada':         [-96.0, 60.0],
-  'Chile':          [-71.0,-35.0],
-  'Indonesia':      [118.0, -2.0],
-};
-
-function drawMap(world, data, maxVal, metric, phaseF) {
+function drawMap(world, data, maxVal, metric, phaseF, minT) {
   const svg = document.getElementById('world-map');
+
+  // Equirectangular projection
+  function project(lon, lat) {
+    const x = (lon + 180) / 360 * 1000;
+    const y = (90 - lat) / 180 * 500;
+    return [x, y];
+  }
+
+  // Convert a ring to SVG path, but SKIP rings that cross the antimeridian
+  // (these cause the horizontal line artifacts)
+  function ringToPath(ring, featureId) {
+    const pts = ring.map(([lon, lat]) => project(lon, lat));
+    // For Russia (643): skip rings whose average screen X > 950 (far-east Pacific islands)
+    if (String(featureId) === '643') {
+      const avgX = pts.reduce((s,p) => s+p[0], 0) / pts.length;
+      if (avgX > 950) return '';
+      return pts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'Z';
+    }
+    // For Norway (578): skip rings whose average latitude > 74° (Svalbard/Jan Mayen)
+    if (String(featureId) === '578') {
+      const avgLat = ring.reduce((s,[,lat]) => s+lat, 0) / ring.length;
+      if (avgLat > 74) return '';
+    }
+    // For all others: skip rings with a sudden screen jump > 400px (antimeridian artifact)
+    for (let i = 1; i < pts.length; i++) {
+      if (Math.abs(pts[i][0] - pts[i-1][0]) > 400) return '';
+    }
+    return pts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'Z';
+  }
+
+  function featureToPath(geometry, featureId) {
+    if (!geometry) return '';
+    const paths = [];
+    if (geometry.type === 'Polygon') {
+      geometry.coordinates.forEach(ring => {
+        const p = ringToPath(ring, featureId);
+        if (p) paths.push(p);
+      });
+    } else if (geometry.type === 'MultiPolygon') {
+      geometry.coordinates.forEach(poly => poly.forEach(ring => {
+        const p = ringToPath(ring, featureId);
+        if (p) paths.push(p);
+      }));
+    }
+    return paths.join(' ');
+  }
+
+  // Get country name from feature
+  const countries = topojson.feature(world, world.objects.countries);
+
+  // Use a hardcoded ID->name map for the countries we care about
+  const ID_TO_NAME = {
+    "4":"Afghanistan","8":"Albania","12":"Algeria","24":"Angola","32":"Argentina","36":"Australia","40":"Austria","50":"Bangladesh","56":"Belgium","68":"Bolivia","76":"Brazil","100":"Bulgaria","116":"Cambodia","120":"Cameroon","124":"Canada","144":"Sri Lanka","152":"Chile","156":"China","170":"Colombia","188":"Costa Rica","191":"Croatia","192":"Cuba","203":"Czech Republic","208":"Denmark","218":"Ecuador","818":"Egypt","231":"Ethiopia","246":"Finland","250":"France","276":"Germany","288":"Ghana","300":"Greece","320":"Guatemala","332":"Haiti","340":"Honduras","348":"Hungary","356":"India","360":"Indonesia","364":"Iran","368":"Iraq","372":"Ireland","376":"Israel","380":"Italy","388":"Jamaica","392":"Japan","400":"Jordan","398":"Kazakhstan","404":"Kenya","410":"South Korea","414":"Kuwait","418":"Laos","422":"Lebanon","430":"Liberia","434":"Libya","442":"Luxembourg","484":"Mexico","504":"Morocco","508":"Mozambique","516":"Namibia","524":"Nepal","528":"Netherlands","554":"New Zealand","566":"Nigeria","578":"Norway","586":"Pakistan","591":"Panama","604":"Peru","608":"Philippines","616":"Poland","620":"Portugal","630":"Puerto Rico","634":"Qatar","642":"Romania","643":"Russia","682":"Saudi Arabia","694":"Sierra Leone","703":"Slovakia","705":"Slovenia","706":"Somalia","710":"South Africa","724":"Spain","729":"Sudan","752":"Sweden","756":"Switzerland","762":"Tajikistan","764":"Thailand","788":"Tunisia","792":"Turkey","800":"Uganda","804":"Ukraine","784":"United Arab Emirates","826":"United Kingdom","840":"United States of America","858":"Uruguay","862":"Venezuela","704":"Vietnam","887":"Yemen","894":"Zambia","716":"Zimbabwe","807":"North Macedonia","688":"Serbia","233":"Estonia","428":"Latvia","440":"Lithuania","344":"Hong Kong","158":"Taiwan","702":"Singapore","458":"Malaysia","496":"Mongolia"
+  };
+
+  const tooltip = document.getElementById('map-tooltip');
+  const svgEl   = document.getElementById('world-map');
+
+  // Clear and redraw
   svg.innerHTML = '';
 
-  // Projection
-  const projection = d3.geoEquirectangular().scale(159).translate([500,250]).precision(0.1);
-  const geoPath    = d3.geoPath().projection(projection);
-  const countries  = topojson.feature(world, world.objects.countries);
 
-  // Ocean
+
   const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
   bg.setAttribute('width','1000'); bg.setAttribute('height','500');
   bg.setAttribute('fill','#C8DCF0'); svg.appendChild(bg);
 
-  // Defs + clips
+  // ClipPath to prevent shapes bleeding outside map bounds
   const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
-  const mc = document.createElementNS('http://www.w3.org/2000/svg','clipPath');
-  mc.setAttribute('id','map-clip');
-  const mr = document.createElementNS('http://www.w3.org/2000/svg','rect');
-  mr.setAttribute('x','0'); mr.setAttribute('y','0');
-  mr.setAttribute('width','1000'); mr.setAttribute('height','500');
-  mc.appendChild(mr); defs.appendChild(mc); svg.appendChild(defs);
+  defs.innerHTML = '<clipPath id="map-clip"><rect x="0" y="0" width="1000" height="500"/></clipPath>';
+  svg.appendChild(defs);
 
-  const tooltip = document.getElementById('map-tooltip');
-
-  // Draw countries
   countries.features.forEach(feature => {
-    const id      = String(feature.id);
-    const name    = ID_TO_DATA[id] || '';
-    const matchKey = name && data[name] ? name : null;
-    const d       = matchKey ? data[matchKey] : null;
-    const val     = d ? (metric==='trials'?d.trials:metric==='sites'?d.sites:d.avgPct) : 0;
-    const fill    = d && val>0 ? mapColor(val,maxVal,metric) : '#D6E8F7';
+    const id   = feature.id;
+    const name = ID_TO_NAME[String(id)] || '';
+    const geom = feature.geometry;
+    if (!geom) return;
 
-    const pathD = geoPath(feature) || '';
+    // Compute bounding box to skip Antarctica
+    let minLat = 90, maxLat = -90;
+    const allRings = geom.type === 'Polygon' ? geom.coordinates : geom.coordinates.map(p => p[0]);
+    allRings.forEach(ring => ring.forEach(([, lat]) => {
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }));
+    if (maxLat < -60) return; // skip Antarctica
+
+    // Find matching country in our data — check ID override first, then name
+    const overrideName = ID_NAME_OVERRIDES[String(id)];
+    let matchKey = null;
+    if (overrideName && data[overrideName]) {
+      matchKey = overrideName;
+    } else {
+      for (const [k] of Object.entries(data)) {
+        const norm = normalizeName(k);
+        if (norm === name || k === name) { matchKey = k; break; }
+      }
+    }
+
+    const d    = matchKey ? data[matchKey] : null;
+    const val  = d ? (metric === 'trials' ? d.trials : metric === 'sites' ? d.sites : d.avgPct) : 0;
+    const fill = d && val > 0 ? mapColor(val, maxVal, metric) : '#D6E8F7';
+
+    const pathD = featureToPath(geom, id);
     if (!pathD) return;
 
     const path = document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('d', pathD);
     path.setAttribute('fill', fill);
+    path.setAttribute('class', 'map-country');
     path.setAttribute('stroke', 'white');
     path.setAttribute('stroke-width', '0.4');
     path.setAttribute('clip-path', 'url(#map-clip)');
-    path.style.cursor = d ? 'pointer' : 'default';
 
     if (d) {
-      path.addEventListener('mouseenter', e => {
-        path.setAttribute('stroke','#1F3864'); path.setAttribute('stroke-width','1.5');
-        showMapTooltip(e, matchKey, d, metric, phaseF);
+      path.addEventListener('mouseenter', (e) => {
+        path.setAttribute('stroke', '#1F3864');
+        path.setAttribute('stroke-width', '1.5');
+        showMapTooltip(e, matchKey || name, d, metric, phaseF);
       });
-      path.addEventListener('mousemove', e => moveTooltip(e));
+      path.addEventListener('mousemove', (e) => moveTooltip(e));
       path.addEventListener('mouseleave', () => {
-        path.setAttribute('stroke','white'); path.setAttribute('stroke-width','0.4');
+        path.setAttribute('stroke', 'white');
+        path.setAttribute('stroke-width', '0.4');
         tooltip.style.display = 'none';
       });
       path.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',i===0));
-        document.querySelectorAll('.panel').forEach((p,i) => p.classList.toggle('active',i===0));
+        // Jump to country view
+        document.querySelectorAll('.tab').forEach((t,i) => {
+          t.classList.toggle('active', i === 0);
+        });
+        document.querySelectorAll('.panel').forEach((p,i) => {
+          p.classList.toggle('active', i === 0);
+        });
         document.getElementById('view-mode').value = 'country';
         document.getElementById('select-label').textContent = 'Country';
         populateSelect();
         const sel = document.getElementById('country-select');
-        for (let i=0; i<sel.options.length; i++) {
-          if (sel.options[i].value === matchKey) { sel.selectedIndex=i; break; }
+        for (let i = 0; i < sel.options.length; i++) {
+          if (normalizeName(sel.options[i].value) === name || sel.options[i].value === matchKey) {
+            sel.selectedIndex = i; break;
+          }
         }
         updateCountryView();
         tooltip.style.display = 'none';
       });
     }
+
     svg.appendChild(path);
 
-    // Label
+    // Add value label for countries with data
     if (d && val > 0) {
-      let cx, cy;
-      const lc = LABEL_CENTER[matchKey];
-      if (lc) {
-        const p = projection(lc); cx = p[0]; cy = p[1];
-      } else {
-        const c = geoPath.centroid(feature); cx = c[0]; cy = c[1];
-      }
-      if (!isNaN(cx) && !isNaN(cy) && cx>5 && cx<995 && cy>5 && cy<495) {
-        const label = metric==='pct' ? val.toFixed(0)+'%' : String(val);
-        const text  = document.createElementNS('http://www.w3.org/2000/svg','text');
+      // Compute centroid
+      let sumX = 0, sumY = 0, count = 0;
+      const geom = feature.geometry;
+      const rings = geom.type === 'Polygon' ? [geom.coordinates[0]] : geom.coordinates.map(p => p[0]);
+      rings.forEach(ring => {
+        ring.forEach(pt => {
+          const [x, y] = project(pt[0], pt[1]);
+          sumX += x; sumY += y; count++;
+        });
+      });
+      if (count > 0) {
+        const cx = sumX / count;
+        const cy = sumY / count;
+        const label = metric === 'pct' ? val.toFixed(0) + '%' : val;
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
         text.setAttribute('x', cx.toFixed(1));
-        text.setAttribute('y', (cy+3).toFixed(1));
-        text.setAttribute('text-anchor','middle');
-        text.setAttribute('font-size','8');
-        text.setAttribute('font-weight','bold');
-        text.setAttribute('fill', val/maxVal>0.5?'white':'#1F3864');
-        text.setAttribute('pointer-events','none');
-        text.textContent = label;
+        text.setAttribute('y', (cy + 3).toFixed(1));
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('font-size', '8');
+        text.setAttribute('font-weight', 'bold');
+        text.setAttribute('fill', val / maxVal > 0.5 ? 'white' : '#1F3864');
+        text.setAttribute('pointer-events', 'none');
+        text.textContent = String(label);
         svg.appendChild(text);
       }
     }
   });
 
-  // EU Inset
-  const INSET = { x:15, y:270, w:240, h:195 };
-  const EU_LON = [-12, 32], EU_LAT = [34, 72];
+  // ── EU Inset ──────────────────────────────────────────────────────────────
+  // Inset box: bottom-right, 280x220 px in SVG coords
+  const INSET = { x: 710, y: 270, w: 285, h: 225 };
+  // EU viewport: lon 340-500 px (approx -5 to 30 lon), lat 130-240 px (approx 35 to 72 lat)
+  const EU_LON = [-12, 32];
+  const EU_LAT = [34, 72];
 
   function projectEU(lon, lat) {
-    return [
-      INSET.x + (lon-EU_LON[0])/(EU_LON[1]-EU_LON[0])*INSET.w,
-      INSET.y + (1-(lat-EU_LAT[0])/(EU_LAT[1]-EU_LAT[0]))*INSET.h
-    ];
+    const x = INSET.x + (lon - EU_LON[0]) / (EU_LON[1] - EU_LON[0]) * INSET.w;
+    const y = INSET.y + (1 - (lat - EU_LAT[0]) / (EU_LAT[1] - EU_LAT[0])) * INSET.h;
+    return [x, y];
   }
 
-  function ringToPathEU(ring) {
-    const avgLat = ring.reduce((s,[,lat])=>s+lat,0)/ring.length;
-    if (avgLat > 74) return '';
-    const pts = ring.map(([lon,lat]) => projectEU(lon,lat));
-    for (let i=1; i<pts.length; i++) {
-      if (Math.abs(pts[i][0]-pts[i-1][0]) > 200) return '';
+  function ringToPathEU(ring, featureId) {
+    // Skip Norway's Svalbard (avg lat > 74°)
+    if (String(featureId) === '578') {
+      const avgLat = ring.reduce((s,[,lat]) => s+lat, 0) / ring.length;
+      if (avgLat > 74) return '';
     }
-    const avgX = pts.reduce((s,p)=>s+p[0],0)/pts.length;
-    if (avgX < INSET.x-20 || avgX > INSET.x+INSET.w+20) return '';
-    return pts.map((p,i)=>(i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'Z';
+    const pts = ring.map(([lon, lat]) => projectEU(lon, lat));
+    // Skip rings with sudden jumps > 200px in inset
+    for (let i = 1; i < pts.length; i++) {
+      if (Math.abs(pts[i][0] - pts[i-1][0]) > 200) return '';
+    }
+    // Only render if centroid is near the inset area
+    const avgX = pts.reduce((s,p) => s+p[0], 0) / pts.length;
+    if (avgX < INSET.x - 50 || avgX > INSET.x + INSET.w + 50) return '';
+    return pts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'Z';
   }
 
-  function featureToPathEU(geom) {
-    if (!geom) return '';
+  function featureToPathEU(geometry, featureId) {
+    if (!geometry) return '';
     const paths = [];
-    if (geom.type==='Polygon') geom.coordinates.forEach(r=>{const p=ringToPathEU(r);if(p)paths.push(p);});
-    else if (geom.type==='MultiPolygon') geom.coordinates.forEach(poly=>poly.forEach(r=>{const p=ringToPathEU(r);if(p)paths.push(p);}));
+    if (geometry.type === 'Polygon') {
+      geometry.coordinates.forEach(ring => { const p = ringToPathEU(ring, featureId); if (p) paths.push(p); });
+    } else if (geometry.type === 'MultiPolygon') {
+      geometry.coordinates.forEach(poly => poly.forEach(ring => { const p = ringToPathEU(ring, featureId); if (p) paths.push(p); }));
+    }
     return paths.join(' ');
   }
 
-  // EU clip
-  const euClip = document.createElementNS('http://www.w3.org/2000/svg','clipPath');
-  euClip.setAttribute('id','eu-clip');
-  const euRect = document.createElementNS('http://www.w3.org/2000/svg','rect');
-  euRect.setAttribute('x',INSET.x); euRect.setAttribute('y',INSET.y);
-  euRect.setAttribute('width',INSET.w); euRect.setAttribute('height',INSET.h);
-  euClip.appendChild(euRect); defs.appendChild(euClip);
-
-  // Inset background
+  // Inset background + border
   const insetBg = document.createElementNS('http://www.w3.org/2000/svg','rect');
-  insetBg.setAttribute('x',INSET.x-2); insetBg.setAttribute('y',INSET.y-16);
-  insetBg.setAttribute('width',INSET.w+4); insetBg.setAttribute('height',INSET.h+20);
-  insetBg.setAttribute('fill','#C8DCF0'); insetBg.setAttribute('rx','4');
-  insetBg.setAttribute('stroke','#1F3864'); insetBg.setAttribute('stroke-width','1.5');
+  insetBg.setAttribute('x', INSET.x - 2); insetBg.setAttribute('y', INSET.y - 16);
+  insetBg.setAttribute('width', INSET.w + 4); insetBg.setAttribute('height', INSET.h + 20);
+  insetBg.setAttribute('fill', '#C8DCF0'); insetBg.setAttribute('rx', '4');
+  insetBg.setAttribute('stroke', '#1F3864'); insetBg.setAttribute('stroke-width', '1.5');
   svg.appendChild(insetBg);
 
+  // Inset label
   const insetLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
-  insetLabel.setAttribute('x',INSET.x+2); insetLabel.setAttribute('y',INSET.y-4);
-  insetLabel.setAttribute('font-size','9'); insetLabel.setAttribute('font-weight','bold');
-  insetLabel.setAttribute('fill','#1F3864'); insetLabel.setAttribute('pointer-events','none');
-  insetLabel.textContent = 'EUROPE (inset)'; svg.appendChild(insetLabel);
+  insetLabel.setAttribute('x', INSET.x + 2); insetLabel.setAttribute('y', INSET.y - 4);
+  insetLabel.setAttribute('font-size', '9'); insetLabel.setAttribute('font-weight', 'bold');
+  insetLabel.setAttribute('fill', '#1F3864'); insetLabel.setAttribute('pointer-events', 'none');
+  insetLabel.textContent = 'EUROPE (inset)';
+  svg.appendChild(insetLabel);
 
-  // Draw EU countries
+  // EU country IDs (approximate)
+  const EU_IDS = new Set([
+    '40','56','100','191','203','208','233','246','250','276','300',
+    '348','372','380','428','440','442','528','578','616','620',
+    '642','703','705','724','752','756','826','807','688','372'
+  ]);
+
   countries.features.forEach(feature => {
-    const id   = String(feature.id);
-    const name = ID_TO_DATA[id] || '';
+    const id   = feature.id;
+    const name = ID_TO_NAME[String(id)] || '';
     const geom = feature.geometry;
     if (!geom) return;
 
-    let minLon2=180, maxLon2=-180, minLat2=90, maxLat2=-90;
-    const rings2 = geom.type==='Polygon'?[geom.coordinates[0]]:geom.coordinates.map(p=>p[0]);
-    rings2.forEach(ring=>ring.forEach(([lon,lat])=>{
-      if(lon<minLon2)minLon2=lon; if(lon>maxLon2)maxLon2=lon;
-      if(lat<minLat2)minLat2=lat; if(lat>maxLat2)maxLat2=lat;
+    // Only draw countries that overlap the EU viewport
+    let minLon2 = 180, maxLon2 = -180, minLat2 = 90, maxLat2 = -90;
+    const rings2 = geom.type === 'Polygon' ? [geom.coordinates[0]] : geom.coordinates.map(p => p[0]);
+    rings2.forEach(ring => ring.forEach(([lon, lat]) => {
+      if (lon < minLon2) minLon2 = lon; if (lon > maxLon2) maxLon2 = lon;
+      if (lat < minLat2) minLat2 = lat; if (lat > maxLat2) maxLat2 = lat;
     }));
-    if (maxLon2<EU_LON[0]||minLon2>EU_LON[1]||maxLat2<EU_LAT[0]||minLat2>EU_LAT[1]) return;
+    if (maxLon2 < EU_LON[0] || minLon2 > EU_LON[1] || maxLat2 < EU_LAT[0] || minLat2 > EU_LAT[1]) return;
 
-    const matchKey2 = name && data[name] ? name : null;
+    const overrideName2 = ID_NAME_OVERRIDES[String(id)];
+    let matchKey2 = null;
+    if (overrideName2 && data[overrideName2]) {
+      matchKey2 = overrideName2;
+    } else {
+      for (const [k] of Object.entries(data)) {
+        const norm = normalizeName(k);
+        if (norm === name || k === name) { matchKey2 = k; break; }
+      }
+    }
     const d2   = matchKey2 ? data[matchKey2] : null;
-    const val2 = d2 ? (metric==='trials'?d2.trials:metric==='sites'?d2.sites:d2.avgPct) : 0;
-    const fill2 = d2 && val2>0 ? mapColor(val2,maxVal,metric) : '#D6E8F7';
+    const val2 = d2 ? (metric === 'trials' ? d2.trials : metric === 'sites' ? d2.sites : d2.avgPct) : 0;
+    const fill2 = d2 && val2 > 0 ? mapColor(val2, maxVal, metric) : '#D6E8F7';
 
-    const pathD2 = featureToPathEU(geom);
+    const pathD2 = featureToPathEU(geom, id);
     if (!pathD2) return;
 
     const path2 = document.createElementNS('http://www.w3.org/2000/svg','path');
-    path2.setAttribute('d',pathD2); path2.setAttribute('fill',fill2);
-    path2.setAttribute('stroke','white'); path2.setAttribute('stroke-width','0.6');
-    path2.setAttribute('clip-path','url(#eu-clip)');
+    path2.setAttribute('d', pathD2);
+    path2.setAttribute('fill', fill2);
+    path2.setAttribute('stroke', 'white');
+    path2.setAttribute('stroke-width', '0.6');
     path2.style.cursor = d2 ? 'pointer' : 'default';
 
     if (d2) {
-      path2.addEventListener('mouseenter', e => {
-        path2.setAttribute('stroke','#1F3864'); path2.setAttribute('stroke-width','1.5');
-        showMapTooltip(e, matchKey2, d2, metric, phaseF);
+      path2.addEventListener('mouseenter', (e) => {
+        path2.setAttribute('stroke', '#1F3864'); path2.setAttribute('stroke-width', '1.5');
+        showMapTooltip(e, matchKey2 || name, d2, metric, phaseF);
       });
-      path2.addEventListener('mousemove', e => moveTooltip(e));
+      path2.addEventListener('mousemove', (e) => moveTooltip(e));
       path2.addEventListener('mouseleave', () => {
-        path2.setAttribute('stroke','white'); path2.setAttribute('stroke-width','0.6');
-        tooltip.style.display = 'none';
+        path2.setAttribute('stroke', 'white'); path2.setAttribute('stroke-width', '0.6');
+        document.getElementById('map-tooltip').style.display = 'none';
       });
     }
     svg.appendChild(path2);
 
-    // EU label
+    // Label
     if (d2 && val2 > 0) {
-      let sumX2=0, sumY2=0, cnt2=0;
-      rings2.forEach(ring=>ring.forEach(pt=>{
-        const [px,py]=projectEU(pt[0],pt[1]);
-        sumX2+=px; sumY2+=py; cnt2++;
+      let sumX2 = 0, sumY2 = 0, cnt2 = 0;
+      rings2.forEach(ring => ring.forEach(pt => {
+        const [px, py] = projectEU(pt[0], pt[1]);
+        sumX2 += px; sumY2 += py; cnt2++;
       }));
-      if (cnt2>0) {
-        const cx2=sumX2/cnt2, cy2=sumY2/cnt2;
-        if (cx2>=INSET.x&&cx2<=INSET.x+INSET.w&&cy2>=INSET.y&&cy2<=INSET.y+INSET.h) {
-          const lbl2 = metric==='pct'?val2.toFixed(0)+'%':String(val2);
+      if (cnt2 > 0) {
+        const cx2 = sumX2 / cnt2, cy2 = sumY2 / cnt2;
+        // Only label if centroid is within inset bounds
+        if (cx2 >= INSET.x && cx2 <= INSET.x + INSET.w && cy2 >= INSET.y && cy2 <= INSET.y + INSET.h) {
+          const lbl2 = metric === 'pct' ? val2.toFixed(0) + '%' : String(val2);
           const t2 = document.createElementNS('http://www.w3.org/2000/svg','text');
-          t2.setAttribute('x',cx2.toFixed(1)); t2.setAttribute('y',(cy2+3).toFixed(1));
-          t2.setAttribute('text-anchor','middle'); t2.setAttribute('font-size','7');
-          t2.setAttribute('font-weight','bold'); t2.setAttribute('pointer-events','none');
-          t2.setAttribute('fill',val2/maxVal>0.5?'white':'#1F3864');
-          t2.textContent = lbl2; svg.appendChild(t2);
+          t2.setAttribute('x', cx2.toFixed(1)); t2.setAttribute('y', (cy2 + 3).toFixed(1));
+          t2.setAttribute('text-anchor', 'middle'); t2.setAttribute('font-size', '7');
+          t2.setAttribute('font-weight', 'bold'); t2.setAttribute('pointer-events', 'none');
+          t2.setAttribute('fill', val2 / maxVal > 0.5 ? 'white' : '#1F3864');
+          t2.textContent = lbl2;
+          svg.appendChild(t2);
         }
       }
     }
@@ -1105,11 +1131,11 @@ function drawMap(world, data, maxVal, metric, phaseF) {
 
   // Inset border on top
   const insetBorder = document.createElementNS('http://www.w3.org/2000/svg','rect');
-  insetBorder.setAttribute('x',INSET.x-2); insetBorder.setAttribute('y',INSET.y-16);
-  insetBorder.setAttribute('width',INSET.w+4); insetBorder.setAttribute('height',INSET.h+20);
-  insetBorder.setAttribute('fill','none'); insetBorder.setAttribute('rx','4');
-  insetBorder.setAttribute('stroke','#1F3864'); insetBorder.setAttribute('stroke-width','1.5');
-  insetBorder.setAttribute('pointer-events','none');
+  insetBorder.setAttribute('x', INSET.x - 2); insetBorder.setAttribute('y', INSET.y - 16);
+  insetBorder.setAttribute('width', INSET.w + 4); insetBorder.setAttribute('height', INSET.h + 20);
+  insetBorder.setAttribute('fill', 'none'); insetBorder.setAttribute('rx', '4');
+  insetBorder.setAttribute('stroke', '#1F3864'); insetBorder.setAttribute('stroke-width', '1.5');
+  insetBorder.setAttribute('pointer-events', 'none');
   svg.appendChild(insetBorder);
 }
 
@@ -1117,7 +1143,10 @@ function showMapTooltip(e, country, d, metric, phaseF) {
   const tooltip = document.getElementById('map-tooltip');
   const region  = REGION_MAP[country] || '—';
   const rl      = REGION_LABELS[region] || region;
-  const top5    = [...d.trialList].sort((a,b)=>b.sites-a.sites).slice(0,5);
+
+  // Top 5 trials by sites
+  const top5 = [...d.trialList].sort((a,b) => b.sites - a.sites).slice(0,5);
+
   tooltip.innerHTML = `
     <div style="font-weight:bold;font-size:14px;color:var(--navy);margin-bottom:4px;">${country}</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #eee;">${region} — ${rl}</div>
@@ -1128,7 +1157,7 @@ function showMapTooltip(e, country, d, metric, phaseF) {
       <div><div style="font-size:12px;font-weight:bold;color:var(--muted);">Click to explore →</div></div>
     </div>
     <div style="font-size:10px;font-weight:bold;color:var(--muted);text-transform:uppercase;margin-bottom:5px;">Top trials by sites</div>
-    ${top5.map(t=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f5f5f5;font-size:11px;">
+    ${top5.map(t => `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f5f5f5;font-size:11px;">
       <span><strong>${t.study}</strong> <span style="color:var(--muted);">${t.mab}</span></span>
       <span style="color:var(--navy);font-weight:bold;">${t.sites} <span style="color:var(--muted);font-weight:normal;">(${t.pct.toFixed(0)}%)</span></span>
     </div>`).join('')}
@@ -1144,10 +1173,10 @@ function moveTooltip(e) {
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
   const tw = 240, th = 200;
-  const left = x+tw+10 > rect.width  ? x-tw-10 : x+10;
-  const top  = y+th    > rect.height ? y-th     : y+10;
-  tooltip.style.left = left+'px';
-  tooltip.style.top  = top+'px';
+  const left = x + tw + 10 > rect.width ? x - tw - 10 : x + 10;
+  const top  = y + th > rect.height ? y - th : y + 10;
+  tooltip.style.left = left + 'px';
+  tooltip.style.top  = top  + 'px';
 }
 </script>
 </body>
