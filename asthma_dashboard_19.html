@@ -925,7 +925,8 @@ function drawMap(world, data, maxVal, metric, phaseF, minT) {
     }
     // Debug specific countries
     if (['36','250','56','40'].includes(String(id))) {
-      console.log(`ID ${id}: name="${name}" override="${overrideName}" matchKey="${matchKey}" inData=${!!data[overrideName]}`);
+      const testCentroid = geoPath.centroid(feature);
+      console.log(`ID ${id}: name="${name}" override="${overrideName}" matchKey="${matchKey}" inData=${!!data[overrideName]} centroid=${JSON.stringify(testCentroid)}`);
     }
 
     const d    = matchKey ? data[matchKey] : null;
