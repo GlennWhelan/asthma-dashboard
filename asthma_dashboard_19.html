@@ -977,6 +977,45 @@ function drawMap(world, data, maxVal, metric, phaseF) {
     }
     svg.appendChild(path);
 
+    // For small countries, add an invisible larger hit area
+    const SMALL_COUNTRIES = ['Belgium','Austria','Switzerland','Netherlands',
+      'Denmark','Slovakia','Slovenia','Estonia','Latvia','Lithuania',
+      'Luxembourg','Israel','Lebanon','Singapore','Hong Kong','Taiwan'];
+    if (d && SMALL_COUNTRIES.includes(matchKey)) {
+      const lc = LABEL_CENTER[matchKey];
+      if (lc) {
+        const p = projection(lc);
+        const hitArea = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        hitArea.setAttribute('cx', p[0].toFixed(1));
+        hitArea.setAttribute('cy', p[1].toFixed(1));
+        hitArea.setAttribute('r', '12');
+        hitArea.setAttribute('fill', 'transparent');
+        hitArea.setAttribute('stroke', 'none');
+        hitArea.style.cursor = 'pointer';
+        hitArea.addEventListener('mouseenter', e => {
+          showMapTooltip(e, matchKey, d, metric, phaseF);
+        });
+        hitArea.addEventListener('mousemove', e => moveTooltip(e));
+        hitArea.addEventListener('mouseleave', () => {
+          tooltip.style.display = 'none';
+        });
+        hitArea.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',i===0));
+          document.querySelectorAll('.panel').forEach((p,i) => p.classList.toggle('active',i===0));
+          document.getElementById('view-mode').value = 'country';
+          document.getElementById('select-label').textContent = 'Country';
+          populateSelect();
+          const sel = document.getElementById('country-select');
+          for (let i=0; i<sel.options.length; i++) {
+            if (sel.options[i].value === matchKey) { sel.selectedIndex=i; break; }
+          }
+          updateCountryView();
+          tooltip.style.display = 'none';
+        });
+        svg.appendChild(hitArea);
+      }
+    }
+
     // Label
     if (d && val > 0) {
       let cx, cy;
@@ -1143,7 +1182,7 @@ function showMapTooltip(e, country, d, metric, phaseF) {
   const tooltip = document.getElementById('map-tooltip');
   const region  = REGION_MAP[country] || '—';
   const rl      = REGION_LABELS[region] || region;
-  const top5    = [...d.trialList].sort((a,b)=>b.sites-a.sites).slice(0,5);
+  const top5 = [...(d.trialList||[])].sort((a,b)=>b.sites-a.sites).slice(0,5);
   tooltip.innerHTML = `
     <div style="font-weight:bold;font-size:14px;color:var(--navy);margin-bottom:4px;">${country}</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #eee;">${region} — ${rl}</div>
