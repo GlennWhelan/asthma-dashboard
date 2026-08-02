@@ -911,7 +911,7 @@ function drawMap(world, data, maxVal, metric, phaseF) {
   svg.innerHTML = '';
 
   // Projection
-  const projection = d3.geoEquirectangular().scale(159).translate([500,250]).precision(0.1);
+  const projection = d3.geoEquirectangular().scale(159).translate([500,250]).precision(0.1).clipExtent([[0,0],[1000,500]]);
   const geoPath    = d3.geoPath().projection(projection);
   const countries  = topojson.feature(world, world.objects.countries);
 
